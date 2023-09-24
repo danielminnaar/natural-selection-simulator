@@ -16,9 +16,10 @@ public class GameController : MonoBehaviour
     public float generationTime = 5.0f; // The time for each generation in seconds.
     private bool isGenerationInProgress = false; // Flag to check if a generation is in progress.
 
-    private int currentGeneration = 1;
-    private List<GameObject> currentGenOrganisms;
+    public int currentGeneration = 1;
+    public List<GameObject> currentGenOrganisms;
     private List<GameObject> currentGenFood;
+    private bool pause = false;
 
     void Start()
     {
@@ -28,10 +29,31 @@ public class GameController : MonoBehaviour
     }
     void InitializeSimulation()
     {
+        currentGeneration = 0;
         ScatterFoodSources();
         SpawnInitialPopulation();
         StartCoroutine(GenerationTimer());
     }
+
+    void Update()
+    {
+        if (Input.GetKey(KeyCode.Space)) // If player wants to move on X and Z axis only
+        {
+            if (pause)
+            {
+                Time.timeScale = 1f;
+                pause = false;
+            }
+
+            else
+            {
+                Time.timeScale = 0f;
+                pause = true;
+            }
+
+        }
+    }
+
 
     // Coroutine to run the generation timer.
     IEnumerator GenerationTimer()
@@ -44,15 +66,9 @@ public class GameController : MonoBehaviour
         }
         while (timer > 0)
         {
-            // Update timer display or perform other timer-related actions.
-            //Debug.Log("Generation Timer: " + timer);
-
-            foreach (GameObject go in currentGenOrganisms)
-            {
-                Debug.Log("Trait: " + go.GetComponent<OrganismController>().trait.type.ToSafeString() + ", Speed: " + go.GetComponent<OrganismController>().moveSpeed.ToString() + ", Sense: " + go.GetComponent<OrganismController>().senseRadius.ToString());
-            }
             yield return new WaitForSeconds(1.0f);
             timer--;
+
         }
 
         // Generation is complete.
@@ -71,6 +87,7 @@ public class GameController : MonoBehaviour
         Debug.Log("Average speed: " + avgGenSpeed.ToString());
         Debug.Log("Average sense: " + avgGenSense.ToString());
         StartNewGeneration();
+        currentGeneration++;
         // Perform generation-related actions here.
     }
 

@@ -49,17 +49,10 @@ public class CameraController : MonoBehaviour
         baseInput = baseInput * Time.deltaTime;
         Vector3 newPosition = transform.position;
 
-        if (Input.GetKey(KeyCode.Space)) // If player wants to move on X and Z axis only
-        {
-            transform.Translate(baseInput);
-            newPosition.x = transform.position.x;
-            newPosition.z = transform.position.z;
-            transform.position = newPosition;
-        }
-        else
-        {
-            transform.Translate(baseInput);
-        }
+
+
+        transform.Translate(baseInput);
+
     }
 
     private Vector3 GetBaseInput()
@@ -83,5 +76,5 @@ public class CameraController : MonoBehaviour
         }
         return p_Velocity;
     }
-    
+
 }

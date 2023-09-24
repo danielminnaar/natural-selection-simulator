@@ -11,6 +11,8 @@ public class OrganismController : MonoBehaviour
     public GameObject plane;              // Reference to the ground plane GameObject.
     public float sphereRemoveRadius = 0.5f; // Radius within which spheres will be removed.
     public bool debugDrawSphere = true;
+    public Material senseMaterial;
+    public Material speedMaterial;
     private Bounds planeBounds;
     private Vector3 targetPosition;
     public int foodConsumed = 0;
@@ -27,18 +29,21 @@ public class OrganismController : MonoBehaviour
     public void ApplyTrait(Trait traitToApply)
     {
         trait = traitToApply;
+        Renderer renderer = GetComponentInChildren<Renderer>();
         switch (trait.type)
         {
             case TraitType.SENSE:
                 {
                     SenseTrait sense = (SenseTrait)trait;
                     senseRadius = sense.SenseRadius;
+                    renderer.material = senseMaterial;
                     break;
                 }
             case TraitType.SPEED:
                 {
                     SpeedTrait speed = (SpeedTrait)trait;
                     moveSpeed = speed.MoveSpeed;
+                    renderer.material = speedMaterial;
                     break;
                 }
         }
@@ -129,22 +134,22 @@ public class OrganismController : MonoBehaviour
 
             // Calculate the center of the transparent sphere to align with the capsule's center.
             Vector3 sphereCenter = transform.GetChild(0).position;
-            switch(trait.type)
+            switch (trait.type)
             {
                 case TraitType.SENSE:
-                {
-                    Gizmos.color = new Color(1f, 0f, 0f, 0.3f); // Red color with transparency.
-                    break;
-                }
+                    {
+                        Gizmos.color = new Color(1f, 0f, 0f, 0.3f); // Red color with transparency.
+                        break;
+                    }
                 case TraitType.SPEED:
-                {
-                    Gizmos.color = new Color(0f, 0f, 1f, 0.3f); // Red color with transparency.
-                    break;
-                }
-                    
+                    {
+                        Gizmos.color = new Color(0f, 0f, 1f, 0.3f); // Red color with transparency.
+                        break;
+                    }
+
             }
             // Draw a transparent sphere with the center aligned to the capsule's center.
-            
+
             Gizmos.DrawWireSphere(sphereCenter, sphereRemoveRadius + senseRadius);
         }
     }

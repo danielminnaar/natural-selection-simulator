@@ -206,9 +206,8 @@ MonoBehaviour:
   capsulePrefab: {fileID: 699820520461463082, guid: e6a22e617f872f343a52e1c280fa07f6, type: 3}
   foodPrefab: {fileID: 2133423205712655321, guid: d01301b5e51d0b949930bc5dd155e768, type: 3}
   numberOfSpheres: 10
-  initialPopulation: 5
+  initialPopulation: 10
   maxGenerations: 100
-  maxOrganismSpeed: 8
   generationTime: 10
   currentGeneration: 1
   currentGenOrganisms: []
@@ -262,7 +261,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 167.4, y: -10}
+  m_AnchoredPosition: {x: 167.4, y: -18.2}
   m_SizeDelta: {x: 160, y: 30}
   m_Pivot: {x: 1, y: 1}
 --- !u!114 &585865804
@@ -292,7 +291,7 @@ MonoBehaviour:
     m_BestFit: 0
     m_MinSize: 1
     m_MaxSize: 40
-    m_Alignment: 3
+    m_Alignment: 0
     m_AlignByGeometry: 0
     m_RichText: 1
     m_HorizontalOverflow: 1
@@ -812,7 +811,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 4, y: 4, z: 4}
+  m_LocalScale: {x: 5, y: 5, z: 5}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}

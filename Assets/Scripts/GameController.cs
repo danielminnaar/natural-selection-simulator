@@ -12,14 +12,15 @@ public class GameController : MonoBehaviour
     public int numberOfSpheres = 10;    // Number of spheres to spawn.
     public int initialPopulation = 20; // Initial number of capsules.
     public int maxGenerations = 100;   // Maximum number of generations.
-    public float maxOrganismSpeed = 15.0f;
     public float generationTime = 5.0f; // The time for each generation in seconds.
+
     private bool isGenerationInProgress = false; // Flag to check if a generation is in progress.
 
     public int currentGeneration = 1;
     public List<GameObject> currentGenOrganisms;
     private List<GameObject> currentGenFood;
     private bool pause = false;
+    private bool ffd = false; //fast forward
 
     void Start()
     {
@@ -37,7 +38,7 @@ public class GameController : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKey(KeyCode.Space)) // If player wants to move on X and Z axis only
+        if (Input.GetKey(KeyCode.Space)) // pause game
         {
             if (pause)
             {
@@ -49,6 +50,21 @@ public class GameController : MonoBehaviour
             {
                 Time.timeScale = 0f;
                 pause = true;
+            }
+
+        }
+        if (Input.GetKey(KeyCode.F)) // toggle fast foward
+        {
+            if (ffd)
+            {
+                Time.timeScale = 5f;
+                ffd = false;
+            }
+
+            else
+            {
+                Time.timeScale = 1f;
+                ffd = true;
             }
 
         }
@@ -73,34 +89,23 @@ public class GameController : MonoBehaviour
 
         // Generation is complete.
         isGenerationInProgress = false;
-        Debug.Log("Generation Complete");
-        float avgGenSpeed = 0.0f;
-        float avgGenSense = 0.0f;
+
         for (int i = 0; i < currentGenOrganisms.Count; i++)
         {
             currentGenOrganisms[i].GetComponent<OrganismController>().canMove = false;
-            avgGenSpeed += currentGenOrganisms[i].GetComponent<OrganismController>().moveSpeed;
-            avgGenSense += currentGenOrganisms[i].GetComponent<OrganismController>().senseRadius;
+
         }
-        avgGenSpeed = avgGenSpeed / currentGenOrganisms.Count;
-        avgGenSense = avgGenSense / currentGenOrganisms.Count;
-        Debug.Log("Average speed: " + avgGenSpeed.ToString());
-        Debug.Log("Average sense: " + avgGenSense.ToString());
+
         StartNewGeneration();
         currentGeneration++;
         // Perform generation-related actions here.
     }
 
-    private OrganismController CopyTraits(OrganismController fromOrganism)
-    {
-        OrganismController newOrg = new OrganismController();
-        newOrg.moveSpeed = fromOrganism.moveSpeed;
-        return newOrg;
-    }
 
     private void StartNewGeneration()
     {
-        int fedCount = 0;
+        List<int> orgIndexesToRemove = new List<int>();
+        List<GameObject> ordsToAdd = new List<GameObject>();
         for (int i = currentGenOrganisms.Count - 1; i >= 0; i--)
         {
             // Remove all organism game objects from the game
@@ -108,17 +113,20 @@ public class GameController : MonoBehaviour
             // Remove organisms that haven't eaten
             if (currentGenOrganisms[i].GetComponent<OrganismController>().foodConsumed == 0)
             {
-                currentGenOrganisms.RemoveAt(i);
+                orgIndexesToRemove.Add(i);
             }
             else
             {
                 // copy and replicate this organism
                 currentGenOrganisms[i].GetComponent<OrganismController>().foodConsumed = 0;
-                fedCount++;
-                currentGenOrganisms.Add(currentGenOrganisms[i]);
+                ordsToAdd.Add(currentGenOrganisms[i]);
             }
         }
-        Debug.Log("Organisms fed: " + fedCount.ToString());
+
+        foreach (var o in orgIndexesToRemove)
+            currentGenOrganisms.RemoveAt(o);
+
+        currentGenOrganisms.AddRange(ordsToAdd);
         SpawnPopulation();
         ScatterFoodSources();
         if (!isGenerationInProgress)
@@ -129,7 +137,7 @@ public class GameController : MonoBehaviour
 
     private void SpawnPopulation()
     {
-        Debug.Log("Spawning " + (currentGenOrganisms.Count).ToString() + " organisms.");
+
         for (int i = 0; i < currentGenOrganisms.Count; i++)
         {
             Vector3 spawnPosition = GetRandomSpawnPosition();
@@ -142,9 +150,7 @@ public class GameController : MonoBehaviour
             {
                 organism.plane = groundPlane;
                 organism.foodConsumed = 0;
-                organism.ApplyTrait(TraitsManager.GenerateTrait(organism.trait));
-                // organism.moveSpeed = ImproveMoveSpeed(currentGenOrganisms[i].GetComponent<OrganismController>().moveSpeed);
-                // organism.senseRadius = ImproveSense(organism.senseRadius);
+                organism.ApplyTrait(TraitsManager.GenerateTrait(currentGenOrganisms[i].GetComponent<OrganismController>().trait));
             }
             currentGenOrganisms[i] = capsule;
         }

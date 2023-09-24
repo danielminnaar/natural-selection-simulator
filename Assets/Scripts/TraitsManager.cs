@@ -15,9 +15,9 @@ public static class TraitsManager
         if (parentTrait == null || parentTrait.type == TraitType.NONE)
         {
             if (RandomChance(50))
-                return new SenseTrait(5.0f);
+                return new SenseTrait(3.0f);
             else
-                return new SpeedTrait(5.0f);
+                return new SpeedTrait(6.0f);
         }
         switch (parentTrait.type)
         {

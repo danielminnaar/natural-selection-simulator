@@ -46,10 +46,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moveSpeed: 3
-  senseRadius: 1
+  senseRadius: 0
   plane: {fileID: 0}
-  sphereRemoveRadius: 2
+  sphereRemoveRadius: 1
   debugDrawSphere: 1
+  senseMaterial: {fileID: 2100000, guid: 65b6ccdab55ef4aab91f121722ad522e, type: 2}
+  speedMaterial: {fileID: 2100000, guid: 6e20c89bff578447f8611650685290f0, type: 2}
   foodConsumed: 0
   canMove: 0
 --- !u!1 &6249024684449339668

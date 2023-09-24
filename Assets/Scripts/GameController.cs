@@ -66,8 +66,19 @@ public class GameController : MonoBehaviour
                 Time.timeScale = 1f;
                 ffd = true;
             }
-
         }
+        // if (Input.GetKey(KeyCode.R)) // restart BROKEN
+        // {
+        //     isGenerationInProgress = false;
+        //     currentGeneration = 0;
+        //     foreach (GameObject obj in currentGenOrganisms)
+        //         Destroy(obj);
+        //     foreach (GameObject obj in currentGenFood)
+        //         Destroy(obj);
+        //     currentGenOrganisms = new List<GameObject>();
+        //     currentGenFood = new List<GameObject>();
+        //     InitializeSimulation();
+        // }
     }
 
 
@@ -166,6 +177,7 @@ public class GameController : MonoBehaviour
 
     void SpawnInitialPopulation()
     {
+        currentGenOrganisms.Clear();
         bool testing = false; // todo: create a better test scenario framework
         // Spawn capsules at random positions as your initial population.
         for (int i = 0; i < initialPopulation; i++)

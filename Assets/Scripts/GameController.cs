@@ -47,6 +47,10 @@ public class GameController : MonoBehaviour
             // Update timer display or perform other timer-related actions.
             //Debug.Log("Generation Timer: " + timer);
 
+            foreach (GameObject go in currentGenOrganisms)
+            {
+                Debug.Log("Trait: " + go.GetComponent<OrganismController>().trait.type.ToSafeString() + ", Speed: " + go.GetComponent<OrganismController>().moveSpeed.ToString() + ", Sense: " + go.GetComponent<OrganismController>().senseRadius.ToString());
+            }
             yield return new WaitForSeconds(1.0f);
             timer--;
         }
@@ -79,6 +83,7 @@ public class GameController : MonoBehaviour
 
     private void StartNewGeneration()
     {
+        int fedCount = 0;
         for (int i = currentGenOrganisms.Count - 1; i >= 0; i--)
         {
             // Remove all organism game objects from the game
@@ -92,9 +97,11 @@ public class GameController : MonoBehaviour
             {
                 // copy and replicate this organism
                 currentGenOrganisms[i].GetComponent<OrganismController>().foodConsumed = 0;
+                fedCount++;
                 currentGenOrganisms.Add(currentGenOrganisms[i]);
             }
         }
+        Debug.Log("Organisms fed: " + fedCount.ToString());
         SpawnPopulation();
         ScatterFoodSources();
         if (!isGenerationInProgress)
@@ -105,6 +112,7 @@ public class GameController : MonoBehaviour
 
     private void SpawnPopulation()
     {
+        Debug.Log("Spawning " + (currentGenOrganisms.Count).ToString() + " organisms.");
         for (int i = 0; i < currentGenOrganisms.Count; i++)
         {
             Vector3 spawnPosition = GetRandomSpawnPosition();
@@ -117,27 +125,25 @@ public class GameController : MonoBehaviour
             {
                 organism.plane = groundPlane;
                 organism.foodConsumed = 0;
-                organism.moveSpeed = ImproveMoveSpeed(currentGenOrganisms[i].GetComponent<OrganismController>().moveSpeed);
-                organism.senseRadius = ImproveSense(organism.senseRadius);
+                organism.ApplyTrait(TraitsManager.GenerateTrait(organism.trait));
+                // organism.moveSpeed = ImproveMoveSpeed(currentGenOrganisms[i].GetComponent<OrganismController>().moveSpeed);
+                // organism.senseRadius = ImproveSense(organism.senseRadius);
             }
             currentGenOrganisms[i] = capsule;
         }
     }
 
-    private float ImproveSense(float currentSense)
+    private GameObject SetTraits(GameObject organism)
     {
-        float newSpeed = UnityEngine.Random.Range(currentSense, currentSense + 0.5f);
-        return newSpeed;
-    }
+        OrganismController org = organism.GetComponent<OrganismController>();
+        org.trait = TraitsManager.GenerateTrait(org.trait);
+        return organism;
 
-    private float ImproveMoveSpeed(float currentSpeed)
-    {
-        float newSpeed = UnityEngine.Random.Range(currentSpeed, (currentSpeed + currentSpeed / 2));
-        return newSpeed;
     }
 
     void SpawnInitialPopulation()
     {
+        bool testing = false; // todo: create a better test scenario framework
         // Spawn capsules at random positions as your initial population.
         for (int i = 0; i < initialPopulation; i++)
         {
@@ -151,17 +157,32 @@ public class GameController : MonoBehaviour
             if (organism != null)
             {
                 organism.plane = groundPlane;
-                organism.moveSpeed = UnityEngine.Random.Range(1, maxOrganismSpeed);
-                organism.senseRadius = 0.0f;
+                if (testing)
+                {
+                    organism.ApplyTrait(TestSenseOrganisms());
+                }
+                else
+                {
+                    organism.ApplyTrait(TraitsManager.GenerateTrait(null));
+                }
+
+
                 currentGenOrganisms.Add(capsule);
             }
         }
     }
 
+    private SenseTrait TestSenseOrganisms()
+    {
+
+        return new SenseTrait(50);
+
+    }
+
     void ScatterFoodSources()
     {
         // Reset food in game
-        foreach(GameObject food in currentGenFood)
+        foreach (GameObject food in currentGenFood)
         {
             Destroy(food);
         }

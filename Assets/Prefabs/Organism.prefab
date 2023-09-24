@@ -45,8 +45,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cc34e34977b2d3843955e16583e8ca30, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 20
-  senseRadius: 0
+  moveSpeed: 3
+  senseRadius: 1
   plane: {fileID: 0}
   sphereRemoveRadius: 2
   debugDrawSphere: 1

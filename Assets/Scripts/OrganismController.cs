@@ -16,15 +16,36 @@ public class OrganismController : MonoBehaviour
     public int foodConsumed = 0;
     public bool canMove = false;
     private bool movingToFood = false;
+    public Trait trait;
+    private GameObject targetFood = null;
 
     // sense thoughts
     // the sense can be added to the sphere remove radius for detection
     // but can only remove the sphere if its within the sphereRemoveRadius (1.5f)
     // but the organism can change direction to intersect directly with the sphere
     // if its within the sense radius
-
+    public void ApplyTrait(Trait traitToApply)
+    {
+        trait = traitToApply;
+        switch (trait.type)
+        {
+            case TraitType.SENSE:
+                {
+                    SenseTrait sense = (SenseTrait)trait;
+                    senseRadius = sense.SenseRadius;
+                    break;
+                }
+            case TraitType.SPEED:
+                {
+                    SpeedTrait speed = (SpeedTrait)trait;
+                    moveSpeed = speed.MoveSpeed;
+                    break;
+                }
+        }
+    }
     void Start()
     {
+
 
         // Get the bounds of the ground plane.
         Renderer groundRenderer = plane.GetComponent<Renderer>();
@@ -43,11 +64,12 @@ public class OrganismController : MonoBehaviour
 
     void Update()
     {
+
         if (canMove)
         {
             // Move the capsule towards the target position.
             transform.position = Vector3.MoveTowards(transform.position, targetPosition, moveSpeed * Time.deltaTime);
-            if(!movingToFood)
+            if (!movingToFood)
             {
                 DetectFoodAndChangTargetPosition();
                 // Check if the capsule has reached the target position.
@@ -58,7 +80,7 @@ public class OrganismController : MonoBehaviour
                 }
             }
             // Check for spheres within the remove radius and remove them.
-            RemoveSpheresWithinRadius();
+            CollectFood();
         }
     }
 
@@ -67,18 +89,35 @@ public class OrganismController : MonoBehaviour
         if (senseRadius > 0.0f)
         {
             Collider[] colliders = Physics.OverlapSphere(transform.GetChild(0).position, sphereRemoveRadius + senseRadius);
+            float closestDistance = Mathf.Infinity;
+            GameObject closestFood = null;
             foreach (Collider collider in colliders)
             {
                 if (collider.CompareTag("Sphere")) // Assuming food have a "Sphere" tag.
                 {
-                    // change the target 
-                    float newX = collider.transform.position.x;
-                    float newZ = collider.transform.position.z;
-                    targetPosition = new Vector3(newX, transform.position.y, newZ);
-                    movingToFood = true;
-                    break;
+                    Transform foodTransform = collider.transform;
+
+                    // Calculate the distance to the food object
+                    float distance = Vector3.Distance(transform.position, foodTransform.position);
+
+                    // Check if this food object is closer than the current closest
+                    if (distance < closestDistance)
+                    {
+                        closestDistance = distance;
+                        closestFood = collider.gameObject;
+                    }
+
                 }
             }
+            if (closestFood != null)
+            {
+                // change the target 
+                float newX = closestFood.transform.position.x;
+                float newZ = closestFood.transform.position.z;
+                targetPosition = new Vector3(newX, transform.position.y, newZ);
+                targetFood = closestFood;
+                movingToFood = true;
+            } // no more food in range
         }
     }
 
@@ -90,9 +129,22 @@ public class OrganismController : MonoBehaviour
 
             // Calculate the center of the transparent sphere to align with the capsule's center.
             Vector3 sphereCenter = transform.GetChild(0).position;
-
+            switch(trait.type)
+            {
+                case TraitType.SENSE:
+                {
+                    Gizmos.color = new Color(1f, 0f, 0f, 0.3f); // Red color with transparency.
+                    break;
+                }
+                case TraitType.SPEED:
+                {
+                    Gizmos.color = new Color(0f, 0f, 1f, 0.3f); // Red color with transparency.
+                    break;
+                }
+                    
+            }
             // Draw a transparent sphere with the center aligned to the capsule's center.
-            Gizmos.color = new Color(1f, 0f, 0f, 0.3f); // Red color with transparency.
+            
             Gizmos.DrawWireSphere(sphereCenter, sphereRemoveRadius + senseRadius);
         }
     }
@@ -114,22 +166,31 @@ public class OrganismController : MonoBehaviour
     }
 
     // Remove spheres within the specified radius around the capsule.
-    private void RemoveSpheresWithinRadius()
+    private void CollectFood()
     {
         Collider[] colliders = Physics.OverlapSphere(transform.GetChild(0).position, sphereRemoveRadius);
-
+        bool hasFood = false;
         foreach (Collider collider in colliders)
         {
             if (collider.CompareTag("Sphere")) // Assuming spheres have a "Sphere" tag.
             {
                 foodConsumed++;
+                hasFood = true;
                 Destroy(collider.gameObject);
                 // if we reach the detected food
-                if (movingToFood && (collider.transform.position.x == targetPosition.x && collider.transform.position.z == targetPosition.z))
+                if (movingToFood && collider.gameObject == targetFood)//(collider.transform.position.x == targetPosition.x && collider.transform.position.z == targetPosition.z))
                 {
+                    targetFood = null;
                     movingToFood = false;
                 }
             }
         }
+        // if we dont find the food anymore (someone else got it first) then keep searching
+        if (!hasFood && movingToFood && targetFood == null)
+        {
+            ChooseNewTargetPosition();
+            movingToFood = false;
+        }
+
     }
 }

@@ -10,36 +10,49 @@ public enum TraitType
 }
 public static class TraitsManager
 {
-    public static Trait GenerateTrait(Trait parentTrait)
+    public static List<Trait> GenerateTraits(List<Trait> parentTraits)
     {
-        if (parentTrait == null || parentTrait.type == TraitType.NONE)
+        if (parentTraits == null)
         {
-            if (RandomChance(50))
-                return new SenseTrait(3.0f);
+            if (RandomChance(50)) // Randomly select one trait with default values
+                return new List<Trait>() { new SenseTrait(2.0f) };
             else
-                return new SpeedTrait(6.0f);
+                return new List<Trait>() { new SpeedTrait(6.0f) };
         }
-        switch (parentTrait.type)
+        foreach (Trait t in parentTraits)
         {
-            case TraitType.SPEED:
-                {
-                    SpeedTrait trait = (SpeedTrait)parentTrait;
-                    if (RandomChance(trait.improvementChance))
-                        trait.MoveSpeed += trait.MoveSpeed * trait.improvementIncrease;
-                    return trait;
-                }
-            case TraitType.SENSE:
-                {
-                    SenseTrait trait = (SenseTrait)parentTrait;
-                    if (RandomChance(trait.improvementChance))
-                        trait.SenseRadius += trait.SenseRadius * trait.improvementIncrease;
-                    return trait;
-                }
-            default: // None - randomly select a new trait
-                {
-                    return parentTrait;
-                }
+            switch (t.type)
+            {
+                case TraitType.SPEED:
+                    {
+                        SpeedTrait trait = (SpeedTrait)t;
+                        bool chanceToChange = RandomChance(trait.changeChance);
+                        bool chanceToIncrease = RandomChance(50);
+                        if (chanceToChange && chanceToIncrease)
+                            trait.MoveSpeed += trait.MoveSpeed * trait.changeDifference;
+                        else if (!chanceToIncrease)
+                            trait.MoveSpeed -= trait.MoveSpeed * trait.changeDifference;
+                        break;
+                    }
+                case TraitType.SENSE:
+                    {
+                        SenseTrait trait = (SenseTrait)t;
+                        bool chanceToChange = RandomChance(trait.changeChance);
+                        bool chanceToIncrease = RandomChance(50);
+                        if (chanceToChange && chanceToIncrease)
+                            trait.SenseRadius += trait.SenseRadius * trait.changeDifference;
+                        else if (chanceToChange && !chanceToIncrease)
+                            trait.SenseRadius -= trait.SenseRadius * trait.changeDifference;
+                        break;
+                    }
+                default:
+                    {
+                        throw new Exception("No trait types found!");
+                    }
+            }
         }
+        return parentTraits;
+
 
     }
 

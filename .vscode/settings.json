@@ -51,5 +51,5 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "natural-selection-simulator.sln"
+    "dotnet.defaultSolution": "ns-simulation.sln"
 }

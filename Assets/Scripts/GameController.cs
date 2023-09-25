@@ -9,9 +9,8 @@ public class GameController : MonoBehaviour
     public GameObject groundPlane;      // Reference to the ground plane GameObject.
     public GameObject capsulePrefab; // Reference to your capsule prefab.
     public GameObject foodPrefab;   // Reference to your food prefab.
-    public int numberOfSpheres = 10;    // Number of spheres to spawn.
+    public int numberOfFood = 10;    // Number of spheres to spawn.
     public int initialPopulation = 20; // Initial number of capsules.
-    public int maxGenerations = 100;   // Maximum number of generations.
     public float generationTime = 5.0f; // The time for each generation in seconds.
 
     private bool isGenerationInProgress = false; // Flag to check if a generation is in progress.
@@ -21,6 +20,7 @@ public class GameController : MonoBehaviour
     private List<GameObject> currentGenFood;
     private bool pause = false;
     private bool ffd = false; //fast forward
+    public float timer = 0f;
 
     void Start()
     {
@@ -38,7 +38,7 @@ public class GameController : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKey(KeyCode.Space)) // pause game
+        if (Input.GetKeyDown(KeyCode.Space)) // pause game
         {
             if (pause)
             {
@@ -53,7 +53,7 @@ public class GameController : MonoBehaviour
             }
 
         }
-        if (Input.GetKey(KeyCode.F)) // toggle fast foward
+        if (Input.GetKeyDown(KeyCode.F)) // toggle fast foward
         {
             if (ffd)
             {
@@ -67,26 +67,36 @@ public class GameController : MonoBehaviour
                 ffd = true;
             }
         }
-        // if (Input.GetKey(KeyCode.R)) // restart BROKEN
-        // {
-        //     isGenerationInProgress = false;
-        //     currentGeneration = 0;
-        //     foreach (GameObject obj in currentGenOrganisms)
-        //         Destroy(obj);
-        //     foreach (GameObject obj in currentGenFood)
-        //         Destroy(obj);
-        //     currentGenOrganisms = new List<GameObject>();
-        //     currentGenFood = new List<GameObject>();
-        //     InitializeSimulation();
-        // }
+
+        if (Input.GetKeyDown(KeyCode.E)) // toggle fast foward
+        {
+            timer = 0;
+        }
+
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            isGenerationInProgress = false;
+            timer = 0;
+            StopAllCoroutines();
+
+            currentGeneration = 0;
+            foreach (GameObject obj in currentGenOrganisms)
+                Destroy(obj);
+            foreach (GameObject obj in currentGenFood)
+                Destroy(obj);
+            currentGenOrganisms = new List<GameObject>();
+            currentGenFood = new List<GameObject>();
+            InitializeSimulation();
+        }
     }
 
 
     // Coroutine to run the generation timer.
     IEnumerator GenerationTimer()
     {
+
         isGenerationInProgress = true;
-        float timer = generationTime;
+        timer = generationTime;
         for (int i = 0; i < currentGenOrganisms.Count; i++)
         {
             currentGenOrganisms[i].GetComponent<OrganismController>().canMove = true;
@@ -112,9 +122,10 @@ public class GameController : MonoBehaviour
         // Perform generation-related actions here.
     }
 
-
-    private void StartNewGeneration()
+    private void CalculateReplications()
     {
+        // those that ate remain
+        // those that mated add 1 child
         List<int> orgIndexesToRemove = new List<int>();
         List<GameObject> ordsToAdd = new List<GameObject>();
         for (int i = currentGenOrganisms.Count - 1; i >= 0; i--)
@@ -122,15 +133,23 @@ public class GameController : MonoBehaviour
             // Remove all organism game objects from the game
             Destroy(currentGenOrganisms[i]);
             // Remove organisms that haven't eaten
-            if (currentGenOrganisms[i].GetComponent<OrganismController>().foodConsumed == 0)
+            var org = currentGenOrganisms[i].GetComponent<OrganismController>();
+            if (org.foodConsumed == 0)
             {
                 orgIndexesToRemove.Add(i);
             }
             else
             {
-                // copy and replicate this organism
-                currentGenOrganisms[i].GetComponent<OrganismController>().foodConsumed = 0;
-                ordsToAdd.Add(currentGenOrganisms[i]);
+                org.foodConsumed = 0;
+                // copy and replicate this organism if it's with child
+                if(org.mate != null)
+                {
+                    // TODO: determine traits
+                    // TODO: assign parents!
+
+                    ordsToAdd.Add(currentGenOrganisms[i]);
+                }
+                
             }
         }
 
@@ -138,6 +157,13 @@ public class GameController : MonoBehaviour
             currentGenOrganisms.RemoveAt(o);
 
         currentGenOrganisms.AddRange(ordsToAdd);
+    }
+
+
+    private void StartNewGeneration()
+    {
+        CalculateReplications();
+
         SpawnPopulation();
         ScatterFoodSources();
         if (!isGenerationInProgress)
@@ -155,24 +181,17 @@ public class GameController : MonoBehaviour
             GameObject capsule = Instantiate(capsulePrefab, spawnPosition, Quaternion.identity);
             Renderer capsuleRenderer = capsule.GetComponentInChildren<Renderer>();
             float capsuleHeight = capsuleRenderer.bounds.size.y;
-            capsule.transform.position = new Vector3(capsule.transform.position.x, groundPlane.transform.position.y + capsuleHeight + (capsuleHeight / 2.0f), capsule.transform.position.z);
             OrganismController organism = capsule.GetComponent<OrganismController>();
+            capsule.transform.position = currentGenOrganisms[i].GetComponent<OrganismController>().startPosition; //new Vector3(capsule.transform.position.x, groundPlane.transform.position.y + capsuleHeight + (capsuleHeight / 2.0f), capsule.transform.position.z);
             if (organism != null)
             {
                 organism.plane = groundPlane;
                 organism.foodConsumed = 0;
-                organism.ApplyTrait(TraitsManager.GenerateTrait(currentGenOrganisms[i].GetComponent<OrganismController>().trait));
+                organism.startPosition = currentGenOrganisms[i].GetComponent<OrganismController>().startPosition;
+                organism.ApplyTraits(TraitsManager.GenerateTraits(currentGenOrganisms[i].GetComponent<OrganismController>().traits));
             }
             currentGenOrganisms[i] = capsule;
         }
-    }
-
-    private GameObject SetTraits(GameObject organism)
-    {
-        OrganismController org = organism.GetComponent<OrganismController>();
-        org.trait = TraitsManager.GenerateTrait(org.trait);
-        return organism;
-
     }
 
     void SpawnInitialPopulation()
@@ -182,23 +201,25 @@ public class GameController : MonoBehaviour
         // Spawn capsules at random positions as your initial population.
         for (int i = 0; i < initialPopulation; i++)
         {
-            Vector3 spawnPosition = GetRandomSpawnPosition(); // Implement this method.
+            Vector3 spawnPosition = GetRandomSpawnPosition();
             GameObject capsule = Instantiate(capsulePrefab, spawnPosition, Quaternion.identity);
             Renderer capsuleRenderer = capsule.GetComponentInChildren<Renderer>();
             float capsuleHeight = capsuleRenderer.bounds.size.y;
+            // update the spawn position to be on top of plane
             capsule.transform.position = new Vector3(capsule.transform.position.x, groundPlane.transform.position.y + capsuleHeight + (capsuleHeight / 2.0f), capsule.transform.position.z);
             // Set the "plane" reference in the capsule script.
             OrganismController organism = capsule.GetComponent<OrganismController>();
             if (organism != null)
             {
                 organism.plane = groundPlane;
+                organism.startPosition = capsule.transform.position;
                 if (testing)
                 {
-                    organism.ApplyTrait(TestSenseOrganisms());
+                    organism.ApplyTraits(new List<Trait>() { TestSenseOrganisms() });
                 }
                 else
                 {
-                    organism.ApplyTrait(TraitsManager.GenerateTrait(null));
+                    organism.ApplyTraits(TraitsManager.GenerateTraits(null));
                 }
 
 
@@ -237,7 +258,7 @@ public class GameController : MonoBehaviour
         Vector3 groundSize = groundRenderer.bounds.size;
 
         // Spawn the specified number of spheres on top of the ground plane.
-        for (int i = 0; i < numberOfSpheres; i++)
+        for (int i = 0; i < numberOfFood; i++)
         {
             // Calculate random positions on top of the ground plane.
             float randomX = UnityEngine.Random.Range(groundPosition.x - groundSize.x / 2f, groundPosition.x + groundSize.x / 2f);

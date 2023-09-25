@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 705507994}
-  m_IndirectSpecularColor: {r: 0.44657838, g: 0.49641228, b: 0.57481676, a: 1}
+  m_IndirectSpecularColor: {r: 0.44657826, g: 0.49641263, b: 0.57481676, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -205,12 +205,12 @@ MonoBehaviour:
   groundPlane: {fileID: 2031317942}
   capsulePrefab: {fileID: 699820520461463082, guid: e6a22e617f872f343a52e1c280fa07f6, type: 3}
   foodPrefab: {fileID: 2133423205712655321, guid: d01301b5e51d0b949930bc5dd155e768, type: 3}
-  numberOfSpheres: 10
-  initialPopulation: 10
-  maxGenerations: 100
-  generationTime: 10
+  numberOfFood: 15
+  initialPopulation: 3
+  generationTime: 200
   currentGeneration: 1
   currentGenOrganisms: []
+  timer: 0
 --- !u!4 &393822615
 Transform:
   m_ObjectHideFlags: 0

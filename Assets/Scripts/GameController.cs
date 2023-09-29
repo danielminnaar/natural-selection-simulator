@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using Unity.PlasticSCM.Editor.WebApi;
 using Unity.VisualScripting;
 using UnityEngine;
 
@@ -16,7 +18,8 @@ public class GameController : MonoBehaviour
     private bool isGenerationInProgress = false; // Flag to check if a generation is in progress.
 
     public int currentGeneration = 1;
-    public List<GameObject> currentGenOrganisms;
+    public List<GameObject> currentGenGameObjects;
+    public List<Organism> currentGenOrganisms;
     private List<GameObject> currentGenFood;
     private bool pause = false;
     private bool ffd = false; //fast forward
@@ -24,7 +27,8 @@ public class GameController : MonoBehaviour
 
     void Start()
     {
-        currentGenOrganisms = new List<GameObject>();
+        currentGenOrganisms = new List<Organism>();
+        currentGenGameObjects = new List<GameObject>();
         currentGenFood = new List<GameObject>();
         InitializeSimulation();
     }
@@ -80,11 +84,12 @@ public class GameController : MonoBehaviour
             StopAllCoroutines();
 
             currentGeneration = 0;
-            foreach (GameObject obj in currentGenOrganisms)
+            foreach (GameObject obj in currentGenGameObjects)
                 Destroy(obj);
             foreach (GameObject obj in currentGenFood)
                 Destroy(obj);
-            currentGenOrganisms = new List<GameObject>();
+            currentGenGameObjects = new List<GameObject>();
+            currentGenOrganisms = new List<Organism>();
             currentGenFood = new List<GameObject>();
             InitializeSimulation();
         }
@@ -97,9 +102,9 @@ public class GameController : MonoBehaviour
 
         isGenerationInProgress = true;
         timer = generationTime;
-        for (int i = 0; i < currentGenOrganisms.Count; i++)
+        for (int i = 0; i < currentGenGameObjects.Count; i++)
         {
-            currentGenOrganisms[i].GetComponent<OrganismController>().canMove = true;
+            currentGenGameObjects[i].GetComponent<OrganismController>().organism.canMove = true;
         }
         while (timer > 0)
         {
@@ -111,9 +116,9 @@ public class GameController : MonoBehaviour
         // Generation is complete.
         isGenerationInProgress = false;
 
-        for (int i = 0; i < currentGenOrganisms.Count; i++)
+        for (int i = 0; i < currentGenGameObjects.Count; i++)
         {
-            currentGenOrganisms[i].GetComponent<OrganismController>().canMove = false;
+            currentGenGameObjects[i].GetComponent<OrganismController>().organism.canMove = false;
 
         }
 
@@ -127,43 +132,86 @@ public class GameController : MonoBehaviour
         // those that ate remain
         // those that mated add 1 child
         List<int> orgIndexesToRemove = new List<int>();
-        List<GameObject> ordsToAdd = new List<GameObject>();
-        for (int i = currentGenOrganisms.Count - 1; i >= 0; i--)
+        List<int> gameObjIndexesToRemove = new List<int>();
+        List<OrganismController> orgsToAdd = new List<OrganismController>();
+
+        List<(OrganismController Parent1, OrganismController Parent2)> parentMatches = new List<(OrganismController, OrganismController)>();
+
+        for (int i = currentGenGameObjects.Count - 1; i >= 0; i--)
         {
             // Remove all organism game objects from the game
-            Destroy(currentGenOrganisms[i]);
+            Destroy(currentGenGameObjects[i]);
+            gameObjIndexesToRemove.Add(i);
             // Remove organisms that haven't eaten
-            var org = currentGenOrganisms[i].GetComponent<OrganismController>();
-            if (org.foodConsumed == 0)
+            var org = currentGenGameObjects[i].GetComponent<OrganismController>();
+            if (org.organism.foodConsumed == 0)
             {
                 orgIndexesToRemove.Add(i);
             }
             else
             {
-                org.foodConsumed = 0;
-                // copy and replicate this organism if it's with child
-                if(org.mate != null)
-                {
-                    // TODO: determine traits
-                    // TODO: assign parents!
 
-                    ordsToAdd.Add(currentGenOrganisms[i]);
+                org.organism.foodConsumed = 0;
+                // copy and replicate this organism if it's with child
+                // assumption that only 1 parent has a reference to the other
+                if (org.organism.mateId != "")
+                {
+                    var parent1 = org;
+                    OrganismController parent2 = null;
+                    currentGenGameObjects.ForEach(p2 =>
+                    {
+                        var p2Org = p2.GetComponent<OrganismController>();
+                        if (p2Org.organism.id == org.organism.mateId)
+                            parent2 = p2Org;
+
+                    });
+
+                    if (parent2 != null)
+                    {
+                        // Add the pair of parents to the list
+                        parentMatches.Add((parent1, parent2));
+                    }
                 }
-                
+
+                // Update parent traits (child inherits previous gen traits)
+                org.ApplyTraits(TraitsManager.GenerateParentTraits(org.organism.traits));
+                currentGenOrganisms[i] = org.organism;
             }
         }
 
         foreach (var o in orgIndexesToRemove)
+        {
             currentGenOrganisms.RemoveAt(o);
+        }
+        foreach(var go in gameObjIndexesToRemove)
+        {
+            currentGenGameObjects.RemoveAt(go);
+        }
 
-        currentGenOrganisms.AddRange(ordsToAdd);
+
+        // Generate children
+        foreach (var parentMatch in parentMatches)
+        {
+            var childOrg = new Organism();
+            childOrg.parentIds = new Tuple<string, string>(parentMatch.Parent1.organism.id, parentMatch.Parent2.organism.id);
+            //childOrg.startPosition = GetRandomSpawnPosition(); // parentMatch.Parent1.organism.startPosition; // spawn with parents
+            childOrg.id = "";
+            childOrg.traits = DetermineChildTraits(parentMatch.Parent1, parentMatch.Parent2);
+            currentGenOrganisms.Add(childOrg);
+        }
+
+
+    }
+
+    private List<Trait> DetermineChildTraits(OrganismController parent1, OrganismController parent2)
+    {
+        return TraitsManager.GenerateChildTraits(parent1.organism.traits, parent2.organism.traits);
     }
 
 
     private void StartNewGeneration()
     {
         CalculateReplications();
-
         SpawnPopulation();
         ScatterFoodSources();
         if (!isGenerationInProgress)
@@ -181,22 +229,26 @@ public class GameController : MonoBehaviour
             GameObject capsule = Instantiate(capsulePrefab, spawnPosition, Quaternion.identity);
             Renderer capsuleRenderer = capsule.GetComponentInChildren<Renderer>();
             float capsuleHeight = capsuleRenderer.bounds.size.y;
-            OrganismController organism = capsule.GetComponent<OrganismController>();
-            capsule.transform.position = currentGenOrganisms[i].GetComponent<OrganismController>().startPosition; //new Vector3(capsule.transform.position.x, groundPlane.transform.position.y + capsuleHeight + (capsuleHeight / 2.0f), capsule.transform.position.z);
-            if (organism != null)
-            {
-                organism.plane = groundPlane;
-                organism.foodConsumed = 0;
-                organism.startPosition = currentGenOrganisms[i].GetComponent<OrganismController>().startPosition;
-                organism.ApplyTraits(TraitsManager.GenerateTraits(currentGenOrganisms[i].GetComponent<OrganismController>().traits));
-            }
-            currentGenOrganisms[i] = capsule;
+            OrganismController orgController = capsule.GetComponent<OrganismController>();
+            // update the spawn position to be on top of plane
+            spawnPosition = new Vector3(capsule.transform.position.x, groundPlane.transform.position.y + capsuleHeight + (capsuleHeight / 2.0f), capsule.transform.position.z);
+            capsule.transform.position = spawnPosition;
+            orgController.plane = groundPlane; 
+            orgController.organism = new Organism();
+            orgController.organism.startPosition = spawnPosition;
+            orgController.organism.id = currentGenOrganisms[i].id;
+            orgController.organism.foodConsumed = 0;
+            orgController.organism.parentIds = currentGenOrganisms[i].parentIds;
+            orgController.organism.startPosition = currentGenOrganisms[i].startPosition;
+            orgController.ApplyTraits(currentGenOrganisms[i].traits);
+            currentGenGameObjects.Add(capsule);
         }
     }
 
     void SpawnInitialPopulation()
     {
         currentGenOrganisms.Clear();
+        currentGenGameObjects.Clear();
         bool testing = false; // todo: create a better test scenario framework
         // Spawn capsules at random positions as your initial population.
         for (int i = 0; i < initialPopulation; i++)
@@ -206,25 +258,25 @@ public class GameController : MonoBehaviour
             Renderer capsuleRenderer = capsule.GetComponentInChildren<Renderer>();
             float capsuleHeight = capsuleRenderer.bounds.size.y;
             // update the spawn position to be on top of plane
-            capsule.transform.position = new Vector3(capsule.transform.position.x, groundPlane.transform.position.y + capsuleHeight + (capsuleHeight / 2.0f), capsule.transform.position.z);
+            spawnPosition = new Vector3(capsule.transform.position.x, groundPlane.transform.position.y + capsuleHeight + (capsuleHeight / 2.0f), capsule.transform.position.z);
+            capsule.transform.position = spawnPosition;
             // Set the "plane" reference in the capsule script.
-            OrganismController organism = capsule.GetComponent<OrganismController>();
-            if (organism != null)
+            OrganismController orgController = capsule.GetComponent<OrganismController>();
+            orgController.organism = new Organism();
+            orgController.organism.startPosition = spawnPosition;
+            orgController.plane = groundPlane;
+            
+            if (testing)
             {
-                organism.plane = groundPlane;
-                organism.startPosition = capsule.transform.position;
-                if (testing)
-                {
-                    organism.ApplyTraits(new List<Trait>() { TestSenseOrganisms() });
-                }
-                else
-                {
-                    organism.ApplyTraits(TraitsManager.GenerateTraits(null));
-                }
-
-
-                currentGenOrganisms.Add(capsule);
+                orgController.ApplyTraits(new List<Trait>() { TestSenseOrganisms() });
             }
+            else
+            {
+                orgController.ApplyTraits(TraitsManager.GenerateParentTraits(null));
+            }
+
+            currentGenOrganisms.Add(orgController.organism);
+            currentGenGameObjects.Add(capsule);
         }
     }
 

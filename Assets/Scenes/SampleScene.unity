@@ -205,11 +205,11 @@ MonoBehaviour:
   groundPlane: {fileID: 2031317942}
   capsulePrefab: {fileID: 699820520461463082, guid: e6a22e617f872f343a52e1c280fa07f6, type: 3}
   foodPrefab: {fileID: 2133423205712655321, guid: d01301b5e51d0b949930bc5dd155e768, type: 3}
-  numberOfFood: 15
-  initialPopulation: 3
-  generationTime: 200
+  numberOfFood: 30
+  initialPopulation: 2
+  generationTime: 100
   currentGeneration: 1
-  currentGenOrganisms: []
+  currentGenGameObjects: []
   timer: 0
 --- !u!4 &393822615
 Transform:

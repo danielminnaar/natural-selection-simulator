@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
+using Unity.Properties;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.AI;
@@ -11,49 +12,47 @@ using UnityEngine.UI;
 public class OrganismController : MonoBehaviour
 {
 
-    public float moveSpeed = 3.0f;        // Speed at which the capsule moves.
-    public float senseRadius = 0.0f; // Radius that the capsule can detect objects
     public GameObject plane;              // Reference to the ground plane GameObject.
-    public float sphereRemoveRadius = 0.5f; // Radius within which spheres will be removed.
     public bool debugDrawSphere = true;
     public Text text;
     private Bounds planeBounds;
     private Vector3 targetPosition;
-    public int foodConsumed = 0;
-    public bool canMove = false;
-    public Vector3 startPosition;
     private bool movingToFood = false;
-    public bool lookingForMate = false;
-    public bool movingToMate = false;
-    public List<Trait> traits;
+    private bool lookingForMate = false;
+    private bool movingToMate = false;
     private GameObject targetFood = null;
     private GameObject targetMate = null;
-    public GameObject mate = null;
-    public List<GameObject> parents = new List<GameObject>();
     private static readonly string characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    public string id = "";
+    public Organism organism;
 
 
 
     public void ApplyTraits(List<Trait> traitsToApply)
     {
-        traits = traitsToApply;
+        organism.traits = traitsToApply;
         Renderer renderer = GetComponentInChildren<Renderer>();
-        foreach (Trait t in traits)
+        foreach (Trait t in organism.traits)
         {
             switch (t.type)
             {
                 case TraitType.SENSE:
                     {
                         SenseTrait sense = (SenseTrait)t;
-                        senseRadius = sense.SenseRadius;
+                        organism.senseRadius = sense.SenseRadius;
                         //renderer.material = senseMaterial;
                         break;
                     }
                 case TraitType.SPEED:
                     {
                         SpeedTrait speed = (SpeedTrait)t;
-                        moveSpeed = speed.MoveSpeed;
+                        organism.moveSpeed = speed.MoveSpeed;
+                        //renderer.material = speedMaterial;
+                        break;
+                    }
+                case TraitType.SLOW_DIGESTION:
+                    {
+                        SlowDigestionTrait speed = (SlowDigestionTrait)t;
+                        // not much to do here.
                         //renderer.material = speedMaterial;
                         break;
                     }
@@ -72,8 +71,8 @@ public class OrganismController : MonoBehaviour
 
     void Start()
     {
-
-        GenerateId();
+        if (organism.id == "")
+            GenerateId();
         // Get the bounds of the ground plane.
         Renderer groundRenderer = plane.GetComponent<Renderer>();
         if (groundRenderer != null)
@@ -84,9 +83,16 @@ public class OrganismController : MonoBehaviour
         {
             Debug.LogError("CapsuleController: Renderer not found on the ground plane GameObject.");
         }
-
+        organism.hasMated = false;
         // Initialize the target position.
         ChooseNewTargetPosition();
+    }
+
+    private void UpdateTargetPosition(Vector3 newPosition)
+    {
+        targetPosition = newPosition;
+        organism.energyUsed++;
+
     }
 
     private void GenerateId()
@@ -99,18 +105,25 @@ public class OrganismController : MonoBehaviour
             result[i] = characters[random.Next(characters.Length)];
         }
         var idString = new string(result);
-        id = idString;
+        organism.id = idString;
+    }
+
+    private void CheckEnergy()
+    {
+        if (organism.energyUsed >= organism.maxEnergy)
+            organism.canMove = false;
     }
 
     void Update()
     {
 
-        if (canMove)
+        CheckEnergy();
+        if (organism.canMove)
         {
             // Move the capsule towards the target position.
-            transform.position = Vector3.MoveTowards(transform.position, targetPosition, moveSpeed * Time.deltaTime);
+            transform.position = Vector3.MoveTowards(transform.position, targetPosition, organism.moveSpeed * Time.deltaTime);
             // if we haven't located food, not moving to a mate and dont have a mate, then find something else to do
-            if (!movingToFood && !movingToMate && mate == null)
+            if (!movingToFood && !movingToMate)
             {
                 DetectAndChangeTargetPosition();
                 // Check if the capsule has reached the target position.
@@ -126,34 +139,66 @@ public class OrganismController : MonoBehaviour
         UpdateText();
     }
 
+    public void FoodEaten()
+    {
+        // Default behavior
+        organism.maxEnergy++;
+
+        foreach (Trait t in organism.traits)
+        {
+            t.OnEat(this.organism);
+        }
+    }
+
+    private void Mated()
+    {
+        organism.energyUsed++;
+    }
+
     private void UpdateText()
     {
         string traitsAndVals = "";
-        foreach (Trait t in traits)
+        bool multipleTraits = (organism.traits.Count > 1);
+        foreach (Trait t in organism.traits)
         {
             switch (t.type)
             {
                 case TraitType.SENSE:
-                    traitsAndVals += " SENSE (" + senseRadius + ") ";
+                    traitsAndVals += " SENSE (" + organism.senseRadius + ") ";
                     break;
 
                 case TraitType.SPEED:
-                    traitsAndVals += " SPEED (" + moveSpeed + ") ";
+                    traitsAndVals += " SPEED (" + organism.moveSpeed + ") ";
+                    break;
+                case TraitType.SLOW_DIGESTION:
+                    traitsAndVals += " DIGEST (" + organism.energyUsed + ") ";
                     break;
             }
+            if (multipleTraits)
+                traitsAndVals += Environment.NewLine;
         }
-        string food = "FOOD: " + foodConsumed.ToString();
+        string food = "FOOD: " + organism.foodConsumed.ToString();
+
+        if (organism.hasMated)
+            food += Environment.NewLine + "[ MATED ]";
+
+        if (organism.energyUsed >= organism.maxEnergy)
+            food += Environment.NewLine + " [ NO ENERGY ]";
+
         text.text = traitsAndVals + Environment.NewLine + food;
     }
 
     private bool RequestMate(OrganismController requestingMate)
     {
         // If we dont have a mate but are looking for one (or if we're already moving to the mate requesting)
-        if (mate == null && lookingForMate && (!movingToMate || targetMate == requestingMate.gameObject) && foodConsumed > 0)
+        if (organism.mateId == "" && lookingForMate
+        && (!movingToMate || targetMate == requestingMate.gameObject)
+        && organism.foodConsumed > 0
+        && organism.energyUsed < organism.maxEnergy)
         {
             targetMate = requestingMate.gameObject;
-            targetPosition = targetMate.transform.position;
-            startPosition = requestingMate.startPosition; // go home with the mate
+            UpdateTargetPosition(targetMate.transform.position);
+            organism.startPosition = requestingMate.organism.startPosition; // go home with the mate
             movingToMate = true;
             movingToFood = false;
             return true;
@@ -168,32 +213,30 @@ public class OrganismController : MonoBehaviour
     // we need to store info about the mate - need to make sure that only 1 reproduces.
     private void DetectAndChangeTargetPosition()
     {
-        Collider[] colliders = Physics.OverlapSphere(transform.GetChild(0).position, sphereRemoveRadius + senseRadius);
+        Collider[] colliders = Physics.OverlapSphere(transform.GetChild(0).position, organism.sphereRemoveRadius + organism.senseRadius);
         float closestDistance = Mathf.Infinity;
         GameObject closestFood = null;
         foreach (Collider collider in colliders)
         {
             var colliderOrg = collider.GetComponentInParent<OrganismController>();
             // find a mate if we've eaten
-            if (collider.CompareTag("Capsule") && foodConsumed > 0 && mate == null && colliderOrg.id != this.id)
+            if (collider.CompareTag("Capsule") && organism.foodConsumed > 0 && organism.mateId == "" && colliderOrg.organism.id != this.organism.id)
             {
 
                 // make sure this potential mate is not any of the parents (MIGHT HAVE TO REVISE THIS IF WE ONLY SPAWN 2 AT START)
-                if (parents.Count == 2)
+                if (organism.parentIds != null)
                 {
-                    var p1 = parents[0].GetComponentInParent<OrganismController>().id;
-                    var p2 = parents[1].GetComponentInParent<OrganismController>().id;
-                    if (colliderOrg.id == p1 || colliderOrg.id == p2)
+                    if (colliderOrg.organism.id == organism.parentIds.Item1 || colliderOrg.organism.id == organism.parentIds.Item2)
                         break;
                 }
 
                 // check that the collider is a different org, that it has eaten and has no other mate yet (and not moving to one)
-                if (colliderOrg.foodConsumed > 0 && !movingToMate && (colliderOrg.RequestMate(this))) // Assuming mates have a "Capsule" tag.
+                if (colliderOrg.organism.foodConsumed > 0 && !movingToMate && (colliderOrg.RequestMate(this))) // Assuming mates have a "Capsule" tag.
                 {
                     // mate accepted
                     movingToFood = false;
                     movingToMate = true;
-                    targetPosition = collider.gameObject.transform.parent.position;
+                    UpdateTargetPosition(collider.gameObject.transform.parent.position);
 
                     return; //ignore other colliders
                 }
@@ -221,7 +264,7 @@ public class OrganismController : MonoBehaviour
             // change the target 
             float newX = closestFood.transform.position.x;
             float newZ = closestFood.transform.position.z;
-            targetPosition = new Vector3(newX, transform.position.y, newZ);
+            UpdateTargetPosition(new Vector3(newX, transform.position.y, newZ));
             targetFood = closestFood;
             movingToFood = true;
         } // no more food in range
@@ -238,7 +281,7 @@ public class OrganismController : MonoBehaviour
             Vector3 sphereCenter = transform.GetChild(0).position;
 
             Gizmos.color = new Color(1f, 0f, 0f, 0.3f); // Red color with transparency.
-            Gizmos.DrawWireSphere(sphereCenter, sphereRemoveRadius + senseRadius);
+            Gizmos.DrawWireSphere(sphereCenter, organism.sphereRemoveRadius + organism.senseRadius);
         }
     }
 
@@ -254,22 +297,22 @@ public class OrganismController : MonoBehaviour
         newX = UnityEngine.Random.Range(planeBounds.min.x, planeBounds.max.x);
         newZ = UnityEngine.Random.Range(planeBounds.min.z, planeBounds.max.z);
 
-
-        targetPosition = new Vector3(newX, transform.position.y, newZ);
+        UpdateTargetPosition(new Vector3(newX, transform.position.y, newZ));
     }
 
     // Remove spheres within the specified radius around the capsule.
     private void CheckCollisions()
     {
-        Collider[] colliders = Physics.OverlapSphere(transform.GetChild(0).position, sphereRemoveRadius);
+        Collider[] colliders = Physics.OverlapSphere(transform.GetChild(0).position, organism.sphereRemoveRadius);
         bool hasFood = false;
         foreach (Collider collider in colliders)
         {
             if (collider.CompareTag("Sphere")) // Assuming spheres have a "Sphere" tag.
             {
                 // whether we've targeted food or not we eat it
-                foodConsumed++;
+                organism.foodConsumed++;
                 hasFood = true;
+                FoodEaten();
                 Destroy(collider.gameObject);
                 // if we reach the targeted food
                 if (movingToFood && collider.gameObject == targetFood)//(collider.transform.position.x == targetPosition.x && collider.transform.position.z == targetPosition.z))
@@ -277,7 +320,7 @@ public class OrganismController : MonoBehaviour
                     targetFood = null;
                     movingToFood = false;
                 }
-                if (mate == null)
+                if (organism.mateId == "")
                 {
                     lookingForMate = true;
                 }
@@ -287,23 +330,35 @@ public class OrganismController : MonoBehaviour
             {
                 // make sure the collider is the same organism as our target mate
                 OrganismController otherOrg = collider.GetComponentInParent<OrganismController>();
-                if (otherOrg.id != id && targetMate != null)
+                if (otherOrg.organism.id != organism.id && targetMate != null)
                 {
                     OrganismController targetOrg = targetMate.GetComponent<OrganismController>();
-                    if (targetOrg.id == otherOrg.id && mate == null)
+                    if (targetOrg.organism.id == otherOrg.organism.id && organism.mateId == "")
                     {
-                        // we're close enough, assign the mate and go back to this starting position with the mate
-                        mate = collider.gameObject;
+                        // we're close enough, assign the mate and  
+                        // go back to this starting position with the mate
+
+                        organism.mateId = otherOrg.organism.id;
+                        organism.hasMated = true;
+                        otherOrg.lookingForMate = false;
+                        otherOrg.targetMate = null;
+                        otherOrg.targetFood = null;
+                        otherOrg.movingToFood = false;
+                        otherOrg.movingToMate = false;
+                        otherOrg.organism.hasMated = true;
+                        otherOrg.Mated();
+                        otherOrg.ChooseNewTargetPosition();
                         movingToMate = false;
+                        Mated();
                         targetMate = null;
-                        targetOrg.targetPosition = startPosition;
-                        targetPosition = startPosition;
+                        targetFood = null;
+                        movingToFood = false;
+                        movingToMate = false;
+
+                        ChooseNewTargetPosition();
                     }
 
                 }
-
-
-
             }
         }
         // if we dont find the food anymore (someone else got it first) then keep searching

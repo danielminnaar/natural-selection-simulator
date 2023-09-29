@@ -35,40 +35,76 @@ public static List<Trait> GenerateChildTraits(List<Trait> parent1Traits, List<Tr
 {
     List<Trait> childTraits = new List<Trait>();
 
-    for (int i = 0; i < parent1Traits.Count; i++)
+    // Determine which parent has more traits and which has fewer
+    List<Trait> longerList = (parent1Traits.Count > parent2Traits.Count) ? parent1Traits : parent2Traits;
+    List<Trait> shorterList = (parent1Traits.Count > parent2Traits.Count) ? parent2Traits : parent1Traits;
+
+    for (int i = 0; i < longerList.Count; i++)
     {
-        Trait parent1Trait = parent1Traits[i];
-        Trait parent2Trait = parent2Traits[i];
-
-        float randomChoice = UnityEngine.Random.Range(0f, 1f);
-
-        if (randomChoice < 0.15f)
+        if (i < shorterList.Count) // If the other parent has a corresponding trait
         {
-            // Logic to generate an entirely new trait
-            float newTraitChoice = UnityEngine.Random.Range(0f, 1f);
-            if (newTraitChoice < 0.33f)
-                childTraits.Add(new SenseTrait(2.0f).Variation());
-            else if (newTraitChoice < 0.66f)
-                childTraits.Add(new SpeedTrait(6.0f).Variation());
-            else
-                childTraits.Add(new SlowDigestionTrait().Variation());
-        }
-        else
-        {
-            switch (randomChoice)
+            Trait parent1Trait = (longerList == parent1Traits) ? longerList[i] : shorterList[i];
+            Trait parent2Trait = (longerList == parent1Traits) ? shorterList[i] : longerList[i];
+
+            float randomChoice = UnityEngine.Random.Range(0f, 1f);
+
+            if (randomChoice < 0.15f)
             {
-                case float n when n < 0.33f:
-                    childTraits.Add(parent1Trait.Variation());
-                    break;
+                // Logic to generate an entirely new trait
+                float newTraitChoice = UnityEngine.Random.Range(0f, 1f);
+                if (newTraitChoice < 0.33f)
+                    childTraits.Add(new SenseTrait(2.0f).Variation());
+                else if (newTraitChoice < 0.66f)
+                    childTraits.Add(new SpeedTrait(6.0f).Variation());
+                else
+                    childTraits.Add(new SlowDigestionTrait().Variation());
+                
+                // A bonus additional trait
+                float bonusTraitChance = UnityEngine.Random.Range(0f, 1f);
+                if (bonusTraitChance < 0.15f)
+                {
+                    List<Type> availableTraits = new List<Type> { typeof(SenseTrait), typeof(SpeedTrait), typeof(SlowDigestionTrait) };
+                    foreach (Trait existingTrait in childTraits)
+                    {
+                        availableTraits.Remove(existingTrait.GetType());  // Remove the traits the child already has
+                    }
 
-                case float n when n < 0.66f:
-                    childTraits.Add(parent1Trait.Variation());
-                    break;
+                    if (availableTraits.Count > 0)
+                    {
+                        int randomIndex = UnityEngine.Random.Range(0, availableTraits.Count);
+                        Type selectedTraitType = availableTraits[randomIndex];
 
-                default:
-                    childTraits.Add(parent2Trait.Variation());
-                    break;
+                        if (selectedTraitType == typeof(SenseTrait))
+                            childTraits.Add(new SenseTrait(2.0f).Variation());
+                        else if (selectedTraitType == typeof(SpeedTrait))
+                            childTraits.Add(new SpeedTrait(6.0f).Variation()); 
+                        else if (selectedTraitType == typeof(SlowDigestionTrait))
+                            childTraits.Add(new SlowDigestionTrait().Variation());
+                    }
+                }
             }
+            else
+            {
+                switch (randomChoice)
+                {
+                    case float n when n < 0.33f:
+                        childTraits.Add(parent1Trait.Variation());
+                        break;
+
+                    case float n when n < 0.66f:
+                        childTraits.Add(parent1Trait.Variation());
+                        break;
+
+                    default:
+                        childTraits.Add(parent2Trait.Variation());
+                        break;
+                }
+            }
+        }
+        else // If the other parent doesn't have a corresponding trait
+        {
+            // Directly pass the trait from the parent with more traits, or introduce custom logic if desired
+            childTraits.Add(longerList[i].Variation());
         }
     }
 

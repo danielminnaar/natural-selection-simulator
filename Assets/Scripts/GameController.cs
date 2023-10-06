@@ -2,15 +2,14 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.PlasticSCM.Editor.WebApi;
 using Unity.VisualScripting;
 using UnityEngine;
 
 public class GameController : MonoBehaviour
 {
     public GameObject groundPlane;      // Reference to the ground plane GameObject.
-    public GameObject capsulePrefab; // Reference to your capsule prefab.
-    public GameObject foodPrefab;   // Reference to your food prefab.
+    public List<GameObject> capsulePrefabs; 
+    public GameObject foodPrefab;   // Reference to food prefab.
     public int numberOfFood = 10;    // Number of spheres to spawn.
     public int initialPopulation = 20; // Initial number of capsules.
     public float generationTime = 5.0f; // The time for each generation in seconds.
@@ -24,17 +23,20 @@ public class GameController : MonoBehaviour
     private bool pause = false;
     private bool ffd = false; //fast forward
     public float timer = 0f;
-
+    private ChartController chartController;
+    private Dictionary<int, List<float>> simulationStats;
     void Start()
     {
+        chartController = FindObjectOfType<ChartController>();
         currentGenOrganisms = new List<Organism>();
         currentGenGameObjects = new List<GameObject>();
         currentGenFood = new List<GameObject>();
+        simulationStats = new Dictionary<int, List<float>>();
         InitializeSimulation();
+        Cursor.visible = false;
     }
     void InitializeSimulation()
     {
-        currentGeneration = 0;
         ScatterFoodSources();
         SpawnInitialPopulation();
         StartCoroutine(GenerationTimer());
@@ -71,6 +73,15 @@ public class GameController : MonoBehaviour
                 ffd = true;
             }
         }
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            Application.Quit();
+
+            // If you're testing in the editor
+            #if UNITY_EDITOR
+                UnityEditor.EditorApplication.isPlaying = false;
+            #endif
+        }
 
         if (Input.GetKeyDown(KeyCode.E)) // toggle fast foward
         {
@@ -83,7 +94,7 @@ public class GameController : MonoBehaviour
             timer = 0;
             StopAllCoroutines();
 
-            currentGeneration = 0;
+            currentGeneration = 1;
             foreach (GameObject obj in currentGenGameObjects)
                 Destroy(obj);
             foreach (GameObject obj in currentGenFood)
@@ -91,6 +102,8 @@ public class GameController : MonoBehaviour
             currentGenGameObjects = new List<GameObject>();
             currentGenOrganisms = new List<Organism>();
             currentGenFood = new List<GameObject>();
+            simulationStats = new Dictionary<int, List<float>>();
+            chartController.Reset();
             InitializeSimulation();
         }
     }
@@ -99,7 +112,6 @@ public class GameController : MonoBehaviour
     // Coroutine to run the generation timer.
     IEnumerator GenerationTimer()
     {
-
         isGenerationInProgress = true;
         timer = generationTime;
         for (int i = 0; i < currentGenGameObjects.Count; i++)
@@ -121,10 +133,63 @@ public class GameController : MonoBehaviour
             currentGenGameObjects[i].GetComponent<OrganismController>().organism.canMove = false;
 
         }
-
+        UpdateChart();
+        // calculate 
         StartNewGeneration();
         currentGeneration++;
         // Perform generation-related actions here.
+    }
+
+    private void UpdateChart()
+    {
+        // calculate median values for each trait type and update the chart bars
+        List<float> speedValues = new List<float>();
+        List<float> senseValues = new List<float>();
+        List<float> digestValues = new List<float>();
+        currentGenOrganisms.ForEach(org =>
+        {
+            org.traits.ForEach(orgTrait =>
+            {
+                if (orgTrait.type == TraitType.SPEED)
+                    speedValues.Add(org.moveSpeed);
+                if (orgTrait.type == TraitType.SENSE)
+                    senseValues.Add(org.senseRadius);
+                if (orgTrait.type == TraitType.SLOW_DIGESTION)
+                    digestValues.Add(org.maxEnergy);
+            });
+        });
+
+        float medianSpeed = (speedValues.Count > 0 ? CalculateMedian(speedValues.ToArray()) : 0.0f);
+        float medianSense = (senseValues.Count > 0 ? CalculateMedian(senseValues.ToArray()) : 0.0f);
+        float medianDigest = (digestValues.Count > 0 ? CalculateMedian(digestValues.ToArray()) : 0.0f);
+        simulationStats.Add(currentGeneration, new List<float>() { medianSpeed, medianSense, medianDigest});
+        //simulationStats.Add(currentGeneration, )
+        //chartController.UpdateBars(medianSpeed, medianSense, medianDigest);
+        chartController.UpdateBars(simulationStats);
+
+    }
+
+    private float CalculateMedian(float[] values)
+    {
+        if (values.Length == 0)
+        {
+            throw new InvalidOperationException("Cannot calculate median for an empty set.");
+        }
+
+        var sortedValues = values.OrderBy(v => v).ToArray();
+
+        int middle = sortedValues.Length / 2;
+
+        // If even, average the two middle values
+        if (sortedValues.Length % 2 == 0)
+        {
+            return (sortedValues[middle - 1] + sortedValues[middle]) / 2.0f;
+        }
+        // If odd, return the middle value
+        else
+        {
+            return sortedValues[middle];
+        }
     }
 
     private void CalculateReplications()
@@ -183,7 +248,7 @@ public class GameController : MonoBehaviour
         {
             currentGenOrganisms.RemoveAt(o);
         }
-        foreach(var go in gameObjIndexesToRemove)
+        foreach (var go in gameObjIndexesToRemove)
         {
             currentGenGameObjects.RemoveAt(go);
         }
@@ -220,20 +285,28 @@ public class GameController : MonoBehaviour
         }
     }
 
+    private GameObject GetOrganismPrefab()
+    {
+        int randIndex = UnityEngine.Random.Range(0, capsulePrefabs.Count);
+        return capsulePrefabs[randIndex];
+    }
+
     private void SpawnPopulation()
     {
 
         for (int i = 0; i < currentGenOrganisms.Count; i++)
         {
-            Vector3 spawnPosition = GetRandomSpawnPosition();
-            GameObject capsule = Instantiate(capsulePrefab, spawnPosition, Quaternion.identity);
-            Renderer capsuleRenderer = capsule.GetComponentInChildren<Renderer>();
-            float capsuleHeight = capsuleRenderer.bounds.size.y;
+            GameObject prefab = GetOrganismPrefab();
+            Vector3 spawnPosition = GetRandomSpawnPosition(prefab);
+            // randomy select a pref
+            GameObject capsule = Instantiate(prefab, spawnPosition, Quaternion.identity);
+            // Collider capsuleRenderer = capsule.GetComponent<Collider>();
+            // float capsuleHeight = capsuleRenderer.bounds.size.y;
             OrganismController orgController = capsule.GetComponent<OrganismController>();
             // update the spawn position to be on top of plane
-            spawnPosition = new Vector3(capsule.transform.position.x, groundPlane.transform.position.y + capsuleHeight + (capsuleHeight / 2.0f), capsule.transform.position.z);
+            spawnPosition = new Vector3(capsule.transform.position.x, groundPlane.transform.position.y, capsule.transform.position.z);
             capsule.transform.position = spawnPosition;
-            orgController.plane = groundPlane; 
+            orgController.plane = groundPlane;
             orgController.organism = new Organism();
             orgController.organism.startPosition = spawnPosition;
             orgController.organism.id = currentGenOrganisms[i].id;
@@ -253,19 +326,20 @@ public class GameController : MonoBehaviour
         // Spawn capsules at random positions as your initial population.
         for (int i = 0; i < initialPopulation; i++)
         {
-            Vector3 spawnPosition = GetRandomSpawnPosition();
-            GameObject capsule = Instantiate(capsulePrefab, spawnPosition, Quaternion.identity);
-            Renderer capsuleRenderer = capsule.GetComponentInChildren<Renderer>();
-            float capsuleHeight = capsuleRenderer.bounds.size.y;
+            GameObject prefab = GetOrganismPrefab();
+            Vector3 spawnPosition = GetRandomSpawnPosition(prefab);
+            GameObject capsule = Instantiate(prefab, spawnPosition, Quaternion.identity);
+            //Renderer capsuleRenderer = capsule.GetComponentInChildren<Renderer>();
+            //float capsuleHeight = capsuleRenderer.bounds.size.y; 
             // update the spawn position to be on top of plane
-            spawnPosition = new Vector3(capsule.transform.position.x, groundPlane.transform.position.y + capsuleHeight + (capsuleHeight / 2.0f), capsule.transform.position.z);
+            spawnPosition = new Vector3(capsule.transform.position.x, groundPlane.transform.position.y, capsule.transform.position.z);
             capsule.transform.position = spawnPosition;
             // Set the "plane" reference in the capsule script.
             OrganismController orgController = capsule.GetComponent<OrganismController>();
             orgController.organism = new Organism();
             orgController.organism.startPosition = spawnPosition;
             orgController.plane = groundPlane;
-            
+
             if (testing)
             {
                 orgController.ApplyTraits(new List<Trait>() { TestSenseOrganisms() });
@@ -326,7 +400,7 @@ public class GameController : MonoBehaviour
         }
     }
 
-    Vector3 GetRandomSpawnPosition()
+    Vector3 GetRandomSpawnPosition(GameObject capsulePrefab)
     {
         if (groundPlane == null)
         {

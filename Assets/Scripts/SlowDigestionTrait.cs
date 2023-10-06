@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 public class SlowDigestionTrait : Trait
 {
@@ -24,6 +25,7 @@ public class SlowDigestionTrait : Trait
 
     public override void OnEat(Organism organism)
     {
-        organism.energyUsed -= digestionFactor;
+        organism.maxEnergy += digestionFactor;
+        organism.maxEnergy = Mathf.Clamp(organism.maxEnergy, 1, 20);
     }
 }

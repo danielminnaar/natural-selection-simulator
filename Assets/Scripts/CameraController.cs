@@ -2,79 +2,42 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+
 public class CameraController : MonoBehaviour
 {
-    public float mainSpeed = 100.0f; // regular speed
-    public float shiftAdd = 250.0f; // multiplied by how long shift is held (running)
-    public float maxShift = 1000.0f; // Maximum speed when holding Shift
-    public float camSens = 0.25f; // Mouse sensitivity
-    public float scrollSens = 20.0f;
-    private Vector3 lastMouse = new Vector3(255, 255, 255); // Middle of the screen
-    private float totalRun = 1.0f;
-    private Vector3 baseInput;
+    public float baseMoveSpeed = 30.0f; // Movement speed
+    public float mouseSensitivity = 4.0f; // Mouse sensitivity
+    public float maxYAngle = 120.0f; // Clamping the vertical angle
 
-    void Start()
-    {
-        Cursor.visible = false;
-    }
+    private float pitch = 0.0f; // Pitch rotation
+    private float yaw = 0.0f; // Yaw rotation
+
     void Update()
     {
-        lastMouse = Input.mousePosition - lastMouse;
-        lastMouse = new Vector3(-lastMouse.y * camSens, lastMouse.x * camSens, 0);
-        lastMouse = new Vector3(transform.eulerAngles.x + lastMouse.x, transform.eulerAngles.y + lastMouse.y, 0);
-        transform.eulerAngles = lastMouse;
-        lastMouse = Input.mousePosition;
-
-        // Keyboard commands
-        baseInput = GetBaseInput();
-
-        // Add scroll wheel input for Y-axis movement
-        float scrollInput = Input.GetAxis("Mouse ScrollWheel");
-        baseInput += new Vector3(0, scrollInput * camSens * scrollSens, 0);
-
-        if (Input.GetKey(KeyCode.LeftShift))
+        float moveSpeed = baseMoveSpeed;
+        if (Time.timeScale > 1)
         {
-            totalRun += Time.deltaTime;
-            baseInput = baseInput * totalRun * shiftAdd;
-            baseInput.x = Mathf.Clamp(baseInput.x, -maxShift, maxShift);
-            baseInput.y = Mathf.Clamp(baseInput.y, -maxShift, maxShift);
-            baseInput.z = Mathf.Clamp(baseInput.z, -maxShift, maxShift);
-        }
-        else
-        {
-            totalRun = Mathf.Clamp(totalRun * 0.5f, 1f, 1000f);
-            baseInput = baseInput * mainSpeed;
+            moveSpeed = baseMoveSpeed / Time.timeScale;
         }
 
-        baseInput = baseInput * Time.deltaTime;
-        Vector3 newPosition = transform.position;
+        // Getting user inputs
+        float horizontal = Input.GetAxis("Horizontal");
+        float vertical = Input.GetAxis("Vertical");
+        float mouseX = Input.GetAxis("Mouse X");
+        float mouseY = Input.GetAxis("Mouse Y");
 
+        // Calculating the yaw and pitch rotation based on mouse input
+        yaw += mouseX * mouseSensitivity;
+        pitch -= mouseY * mouseSensitivity;
+        pitch = Mathf.Clamp(pitch, -maxYAngle, maxYAngle);
+        
+        // Apply the rotations to the camera
+        transform.eulerAngles = new Vector3(pitch, yaw, 0.0f);
 
+        // Calculating the forward and side movements
+        Vector3 movement = new Vector3(horizontal, 0, vertical) * moveSpeed * Time.deltaTime;
 
-        transform.Translate(baseInput);
-
+        // Translating the movement in the direction camera is facing
+        transform.Translate(movement);
     }
-
-    private Vector3 GetBaseInput()
-    {
-        Vector3 p_Velocity = new Vector3();
-        if (Input.GetKey(KeyCode.W))
-        {
-            p_Velocity += new Vector3(0, 0, 1);
-        }
-        if (Input.GetKey(KeyCode.S))
-        {
-            p_Velocity += new Vector3(0, 0, -1);
-        }
-        if (Input.GetKey(KeyCode.A))
-        {
-            p_Velocity += new Vector3(-1, 0, 0);
-        }
-        if (Input.GetKey(KeyCode.D))
-        {
-            p_Velocity += new Vector3(1, 0, 0);
-        }
-        return p_Velocity;
-    }
-
 }

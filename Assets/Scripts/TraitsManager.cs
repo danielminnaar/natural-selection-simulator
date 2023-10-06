@@ -12,104 +12,92 @@ public enum TraitType
 }
 public static class TraitsManager
 {
-public static List<Trait> GenerateParentTraits(List<Trait> parentTraits)
-{
-    if (parentTraits == null)
+    public static List<Trait> GenerateParentTraits(List<Trait> parentTraits)
     {
-        float randomTraitChoice = UnityEngine.Random.Range(0f, 1f);
-        if (randomTraitChoice < 0.33f)
-            parentTraits = new List<Trait>() { new SenseTrait(2.5f) };
-        else if (randomTraitChoice < 0.66f)
-            parentTraits = new List<Trait>() { new SpeedTrait(6.0f) };
-        else
-            parentTraits = new List<Trait>() { new SlowDigestionTrait(1) };  
-    }
-    foreach (Trait t in parentTraits)
-    {
-        t.Mutate();
-    }
-    return parentTraits;
-}
-
-public static List<Trait> GenerateChildTraits(List<Trait> parent1Traits, List<Trait> parent2Traits)
-{
-    List<Trait> childTraits = new List<Trait>();
-
-    // Determine which parent has more traits and which has fewer
-    List<Trait> longerList = (parent1Traits.Count > parent2Traits.Count) ? parent1Traits : parent2Traits;
-    List<Trait> shorterList = (parent1Traits.Count > parent2Traits.Count) ? parent2Traits : parent1Traits;
-
-    for (int i = 0; i < longerList.Count; i++)
-    {
-        if (i < shorterList.Count) // If the other parent has a corresponding trait
+        if (parentTraits == null)
         {
-            Trait parent1Trait = (longerList == parent1Traits) ? longerList[i] : shorterList[i];
-            Trait parent2Trait = (longerList == parent1Traits) ? shorterList[i] : longerList[i];
-
-            float randomChoice = UnityEngine.Random.Range(0f, 1f);
-
-            if (randomChoice < 0.15f)
-            {
-                // Logic to generate an entirely new trait
-                float newTraitChoice = UnityEngine.Random.Range(0f, 1f);
-                if (newTraitChoice < 0.33f)
-                    childTraits.Add(new SenseTrait(2.0f).Variation());
-                else if (newTraitChoice < 0.66f)
-                    childTraits.Add(new SpeedTrait(6.0f).Variation());
-                else
-                    childTraits.Add(new SlowDigestionTrait().Variation());
-                
-                // A bonus additional trait
-                float bonusTraitChance = UnityEngine.Random.Range(0f, 1f);
-                if (bonusTraitChance < 0.15f)
-                {
-                    List<Type> availableTraits = new List<Type> { typeof(SenseTrait), typeof(SpeedTrait), typeof(SlowDigestionTrait) };
-                    foreach (Trait existingTrait in childTraits)
-                    {
-                        availableTraits.Remove(existingTrait.GetType());  // Remove the traits the child already has
-                    }
-
-                    if (availableTraits.Count > 0)
-                    {
-                        int randomIndex = UnityEngine.Random.Range(0, availableTraits.Count);
-                        Type selectedTraitType = availableTraits[randomIndex];
-
-                        if (selectedTraitType == typeof(SenseTrait))
-                            childTraits.Add(new SenseTrait(2.0f).Variation());
-                        else if (selectedTraitType == typeof(SpeedTrait))
-                            childTraits.Add(new SpeedTrait(6.0f).Variation()); 
-                        else if (selectedTraitType == typeof(SlowDigestionTrait))
-                            childTraits.Add(new SlowDigestionTrait().Variation());
-                    }
-                }
-            }
+            float randomTraitChoice = UnityEngine.Random.Range(0f, 1f);
+            if (randomTraitChoice < 0.33f)
+                parentTraits = new List<Trait>() { new SenseTrait(2.2f) };
+            else if (randomTraitChoice < 0.66f)
+                parentTraits = new List<Trait>() { new SpeedTrait(6.0f) };
             else
+                parentTraits = new List<Trait>() { new SlowDigestionTrait(1) };
+        }
+        foreach (Trait t in parentTraits)
+        {
+            t.Mutate();
+        }
+        return parentTraits;
+    }
+
+    public static List<Trait> GenerateChildTraits(List<Trait> parent1Traits, List<Trait> parent2Traits)
+    {
+        List<Trait> childTraits = new List<Trait>();
+        HashSet<TraitType> existingTraitTypes = new HashSet<TraitType>();
+        Random random = new Random();
+
+        // Check common traits between parents and add them to childTraits without duplication.
+        foreach (Trait trait1 in parent1Traits)
+        {
+            foreach (Trait trait2 in parent2Traits)
             {
-                switch (randomChoice)
+                if (trait1.type == trait2.type && !existingTraitTypes.Contains(trait1.type))
                 {
-                    case float n when n < 0.33f:
-                        childTraits.Add(parent1Trait.Variation());
-                        break;
+                    childTraits.Add(trait1.Variation());
+                    existingTraitTypes.Add(trait1.type);
+                }
+            }
+        }
 
-                    case float n when n < 0.66f:
-                        childTraits.Add(parent1Trait.Variation());
-                        break;
+        // If there are no common traits, add a random trait from either parent to childTraits.
+        if (childTraits.Count == 0)
+        {
+            Trait randomTrait = random.Next(0, 2) == 0 ? parent1Traits[random.Next(parent1Traits.Count)] : parent2Traits[random.Next(parent2Traits.Count)];
+            childTraits.Add(randomTrait.Variation());
+            existingTraitTypes.Add(randomTrait.type);
+        }
 
-                    default:
-                        childTraits.Add(parent2Trait.Variation());
+        // 15% chance to introduce a new random trait not already inherited from the parents.
+        if (RandomChance(15))
+        {
+            TraitType[] allTraitTypes = { TraitType.SPEED, TraitType.SENSE, TraitType.SLOW_DIGESTION };
+            List<TraitType> availableTraitTypes = new List<TraitType>(allTraitTypes);
+
+            // Remove the traits that the child already has
+            foreach (TraitType traitType in existingTraitTypes)
+            {
+                availableTraitTypes.Remove(traitType);
+            }
+
+            if (availableTraitTypes.Count > 0)
+            {
+                int randomIndex = random.Next(0, availableTraitTypes.Count);
+                TraitType newTraitType = availableTraitTypes[randomIndex];
+
+                switch (newTraitType)
+                {
+                    case TraitType.SPEED:
+                        childTraits.Add(new SpeedTrait(1.0f)); // Default value
+                        break;
+                    case TraitType.SENSE:
+                        childTraits.Add(new SenseTrait(1.0f)); // Default value
+                        break;
+                    case TraitType.SLOW_DIGESTION:
+                        childTraits.Add(new SlowDigestionTrait(1)); // Default value
                         break;
                 }
             }
         }
-        else // If the other parent doesn't have a corresponding trait
-        {
-            // Directly pass the trait from the parent with more traits, or introduce custom logic if desired
-            childTraits.Add(longerList[i].Variation());
-        }
-    }
 
-    return childTraits;
-}
+        TraitType firstType = (childTraits.Count > 1 ? childTraits[0].type : TraitType.NONE);
+        TraitType secondType = (childTraits.Count == 2 ? childTraits[1].type : TraitType.NONE);
+        if (firstType != TraitType.NONE && firstType == secondType)
+        {
+            Debug.Print("dupe");
+        }
+        return childTraits;
+    }
 
     private static bool RandomChance(int percentage)
     {

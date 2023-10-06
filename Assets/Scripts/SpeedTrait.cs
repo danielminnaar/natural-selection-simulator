@@ -1,13 +1,16 @@
 using System.Runtime.CompilerServices;
-
+using UnityEngine;
 public class SpeedTrait : Trait
 {
     public float MoveSpeed = 0.0f;
-
+    private float reduceDifference;
+    private float increaseDifference;
     public SpeedTrait(float speed)
     {
         MoveSpeed = speed;
         type = TraitType.SPEED;
+        reduceDifference = 0.1f;
+        increaseDifference = 0.15f;
     }
 
     public override Trait Variation()
@@ -26,9 +29,11 @@ public class SpeedTrait : Trait
         if (chanceToChange)
         {
             if (chanceToIncrease)
-                MoveSpeed += MoveSpeed * changeDifference;
+                MoveSpeed += MoveSpeed * increaseDifference;
             else
-                MoveSpeed -= MoveSpeed * changeDifference;
+                MoveSpeed -= MoveSpeed * reduceDifference;
         }
+        // cap the value
+        MoveSpeed = Mathf.Clamp(MoveSpeed, 0, 10.0f);
     }
 }

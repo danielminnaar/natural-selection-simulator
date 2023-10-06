@@ -8,6 +8,7 @@ using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Scripting.APIUpdating;
 using UnityEngine.UI;
+using UnityEngine.UIElements;
 
 public class OrganismController : MonoBehaviour
 {
@@ -24,8 +25,8 @@ public class OrganismController : MonoBehaviour
     private GameObject targetMate = null;
     private static readonly string characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     public Organism organism;
-
-
+    private Animator animator;
+    public string id;
 
     public void ApplyTraits(List<Trait> traitsToApply)
     {
@@ -66,11 +67,14 @@ public class OrganismController : MonoBehaviour
         randomMaterial.color = randomColor;
         // Assign the new material to the targetRenderer
         renderer.material = randomMaterial;
-
+        id = organism.id;
     }
 
     void Start()
     {
+        //
+        animator = GetComponent<Animator>();
+
         if (organism.id == "")
             GenerateId();
         // Get the bounds of the ground plane.
@@ -88,10 +92,37 @@ public class OrganismController : MonoBehaviour
         ChooseNewTargetPosition();
     }
 
+    private void RotateText()
+    {
+        Vector3 directionToCamera = Camera.main.transform.position - transform.position;
+
+        // Make the object point towards the camera, ignoring the vertical axis
+        directionToCamera.y = 0;
+        text.transform.rotation = Quaternion.LookRotation(-directionToCamera);
+    }
+
     private void UpdateTargetPosition(Vector3 newPosition)
     {
         targetPosition = newPosition;
+        transform.LookAt(targetPosition);
+        RotateText();
+        // Rotate the text to look at the camera
+        //StartCoroutine(Animate(0.3f)); Fix this
+
         organism.energyUsed++;
+
+    }
+
+    private IEnumerator Animate(float time)
+    {
+        animator.SetFloat("Speed", time);
+        float timer = time;
+        while (timer > 0)
+        {
+            yield return new WaitForSeconds(1.0f);
+            timer--;
+        }
+        animator.SetFloat("Speed", 0.0f);
 
     }
 
@@ -111,7 +142,12 @@ public class OrganismController : MonoBehaviour
     private void CheckEnergy()
     {
         if (organism.energyUsed >= organism.maxEnergy)
+        {
             organism.canMove = false;
+         
+
+        }
+
     }
 
     void Update()
@@ -164,28 +200,28 @@ public class OrganismController : MonoBehaviour
             switch (t.type)
             {
                 case TraitType.SENSE:
-                    traitsAndVals += " SENSE (" + organism.senseRadius + ") ";
+                    traitsAndVals += " SENSE (" + organism.senseRadius.ToString("F2") + ") ";
                     break;
 
                 case TraitType.SPEED:
-                    traitsAndVals += " SPEED (" + organism.moveSpeed + ") ";
+                    traitsAndVals += " SPEED (" + organism.moveSpeed.ToString("F2") + ") ";
                     break;
                 case TraitType.SLOW_DIGESTION:
-                    traitsAndVals += " DIGEST (" + organism.energyUsed + ") ";
+                    traitsAndVals += " DIGESTION (" + organism.energyUsed.ToString() + "/" + organism.maxEnergy.ToString() + ") ";
                     break;
             }
             if (multipleTraits)
                 traitsAndVals += Environment.NewLine;
         }
-        string food = "FOOD: " + organism.foodConsumed.ToString();
+        // string food = "FOOD: " + organism.foodConsumed.ToString();
 
-        if (organism.hasMated)
-            food += Environment.NewLine + "[ MATED ]";
+        // if (organism.hasMated)
+        //     food += Environment.NewLine + "[ MATED ]";
 
-        if (organism.energyUsed >= organism.maxEnergy)
-            food += Environment.NewLine + " [ NO ENERGY ]";
+        // if (organism.energyUsed >= organism.maxEnergy)
+        //     food += Environment.NewLine + " [ NO ENERGY ]";
 
-        text.text = traitsAndVals + Environment.NewLine + food;
+        text.text = traitsAndVals;
     }
 
     private bool RequestMate(OrganismController requestingMate)
@@ -213,7 +249,8 @@ public class OrganismController : MonoBehaviour
     // we need to store info about the mate - need to make sure that only 1 reproduces.
     private void DetectAndChangeTargetPosition()
     {
-        Collider[] colliders = Physics.OverlapSphere(transform.GetChild(0).position, organism.sphereRemoveRadius + organism.senseRadius);
+        var slimeTrfm = transform.Find("Slime");
+        Collider[] colliders = Physics.OverlapSphere(slimeTrfm.position, organism.sphereRemoveRadius + organism.senseRadius);
         float closestDistance = Mathf.Infinity;
         GameObject closestFood = null;
         foreach (Collider collider in colliders)
@@ -276,12 +313,15 @@ public class OrganismController : MonoBehaviour
     {
         if (debugDrawSphere)
         {
-
+            var slimeTrfm = transform.Find("Slime");
+            
             // Calculate the center of the transparent sphere to align with the capsule's center.
-            Vector3 sphereCenter = transform.GetChild(0).position;
-
+            //var cm = transform.position;
+            
+            //Vector3 sphereCenter = transform.GetComponentInChildren<Renderer>().transform.position;
+              
             Gizmos.color = new Color(1f, 0f, 0f, 0.3f); // Red color with transparency.
-            Gizmos.DrawWireSphere(sphereCenter, organism.sphereRemoveRadius + organism.senseRadius);
+            Gizmos.DrawWireSphere(slimeTrfm.transform.position, organism.sphereRemoveRadius + organism.senseRadius);
         }
     }
 
@@ -303,7 +343,8 @@ public class OrganismController : MonoBehaviour
     // Remove spheres within the specified radius around the capsule.
     private void CheckCollisions()
     {
-        Collider[] colliders = Physics.OverlapSphere(transform.GetChild(0).position, organism.sphereRemoveRadius);
+        var slimeTrfm = transform.Find("Slime");
+        Collider[] colliders = Physics.OverlapSphere(slimeTrfm.position, organism.sphereRemoveRadius);
         bool hasFood = false;
         foreach (Collider collider in colliders)
         {

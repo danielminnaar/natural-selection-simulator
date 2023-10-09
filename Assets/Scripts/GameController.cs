@@ -4,24 +4,26 @@ using System.Collections.Generic;
 using System.Linq;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public class GameController : MonoBehaviour
 {
     public GameObject groundPlane;      // Reference to the ground plane GameObject.
-    public List<GameObject> capsulePrefabs; 
+    public List<GameObject> capsulePrefabs;
     public GameObject foodPrefab;   // Reference to food prefab.
     public int numberOfFood = 10;    // Number of spheres to spawn.
     public int initialPopulation = 20; // Initial number of capsules.
     public float generationTime = 5.0f; // The time for each generation in seconds.
-
+    public int worldSize = 5;
+    private Text generationText;
     private bool isGenerationInProgress = false; // Flag to check if a generation is in progress.
-
+    public List<TraitType> allowedTraits = new List<TraitType>();
     public int currentGeneration = 1;
     public List<GameObject> currentGenGameObjects;
     public List<Organism> currentGenOrganisms;
     private List<GameObject> currentGenFood;
     private bool pause = false;
-    private bool ffd = false; //fast forward
     public float timer = 0f;
     private ChartController chartController;
     private Dictionary<int, List<float>> simulationStats;
@@ -41,20 +43,29 @@ public class GameController : MonoBehaviour
     }
     void Start()
     {
+
+
+    }
+    public void InitializeSimulation()
+    {
+        if (groundPlane == null)
+            groundPlane = GameObject.Find("Plane");
+        if (foodPrefab == null)
+            foodPrefab = Resources.Load<GameObject>("Prefabs/Sphere");
+        if (capsulePrefabs.Count == 0)
+        {
+            capsulePrefabs.Add(Resources.Load<GameObject>("Prefabs/Slime_03"));
+            capsulePrefabs.Add(Resources.Load<GameObject>("Prefabs/Slime_03 Leaf"));
+            capsulePrefabs.Add(Resources.Load<GameObject>("Prefabs/Slime_03 Sprout"));
+        }
+        groundPlane.transform.localScale = new Vector3((float)worldSize, (float)worldSize, (float)worldSize);
         chartController = FindObjectOfType<ChartController>();
         currentGenOrganisms = new List<Organism>();
         currentGenGameObjects = new List<GameObject>();
         currentGenFood = new List<GameObject>();
         simulationStats = new Dictionary<int, List<float>>();
-        
-    }
-    public void InitializeSimulation()
-    {
-        groundPlane = GameObject.Find("Plane");
-        foodPrefab = Resources.Load<GameObject>("Prefabs/Sphere");
-        capsulePrefabs.Add(Resources.Load<GameObject>("Prefabs/Slime_03"));
-        capsulePrefabs.Add(Resources.Load<GameObject>("Prefabs/Slime_03 Leaf"));
-        capsulePrefabs.Add(Resources.Load<GameObject>("Prefabs/Slime_03 Sprout"));
+        generationText = GameObject.Find("Stats").GetComponent<Text>();
+        TraitsManager.allowedTraits = allowedTraits;
         Cursor.visible = false;
         ScatterFoodSources();
         SpawnInitialPopulation();
@@ -80,26 +91,19 @@ public class GameController : MonoBehaviour
         }
         if (Input.GetKeyDown(KeyCode.F)) // toggle fast foward
         {
-            if (ffd)
-            {
-                Time.timeScale = 5f;
-                ffd = false;
-            }
-
+            if(Time.timeScale == 1.0f)
+                Time.timeScale = 5.0f;
             else
-            {
-                Time.timeScale = 1f;
-                ffd = true;
-            }
+                Time.timeScale = 1.0f;
         }
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             Application.Quit();
 
             // If you're testing in the editor
-            #if UNITY_EDITOR
-                UnityEditor.EditorApplication.isPlaying = false;
-            #endif
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#endif
         }
 
         if (Input.GetKeyDown(KeyCode.E)) // toggle fast foward
@@ -109,22 +113,28 @@ public class GameController : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.R))
         {
-            isGenerationInProgress = false;
-            timer = 0;
-            StopAllCoroutines();
-
-            currentGeneration = 1;
-            foreach (GameObject obj in currentGenGameObjects)
-                Destroy(obj);
-            foreach (GameObject obj in currentGenFood)
-                Destroy(obj);
-            currentGenGameObjects = new List<GameObject>();
-            currentGenOrganisms = new List<Organism>();
-            currentGenFood = new List<GameObject>();
-            simulationStats = new Dictionary<int, List<float>>();
-            chartController.Reset();
-            InitializeSimulation();
+            ResetSimulation();
+            SceneManager.LoadScene("MenuScene", LoadSceneMode.Single);
         }
+    }
+
+
+    private void ResetSimulation()
+    {
+        isGenerationInProgress = false;
+        timer = 0;
+        StopAllCoroutines();
+        Time.timeScale = 1;
+        currentGeneration = 1;
+        foreach (GameObject obj in currentGenGameObjects)
+            Destroy(obj);
+        foreach (GameObject obj in currentGenFood)
+            Destroy(obj);
+        currentGenGameObjects = new List<GameObject>();
+        currentGenOrganisms = new List<Organism>();
+        currentGenFood = new List<GameObject>();
+        simulationStats = new Dictionary<int, List<float>>();
+        chartController.Reset();
     }
 
 
@@ -139,6 +149,8 @@ public class GameController : MonoBehaviour
         }
         while (timer > 0)
         {
+            string updateText = "GENERATION " + currentGeneration + " (" + timer + ")";
+            generationText.text =  updateText;
             yield return new WaitForSeconds(1.0f);
             timer--;
 
@@ -181,7 +193,7 @@ public class GameController : MonoBehaviour
         float medianSpeed = (speedValues.Count > 0 ? CalculateMedian(speedValues.ToArray()) : 0.0f);
         float medianSense = (senseValues.Count > 0 ? CalculateMedian(senseValues.ToArray()) : 0.0f);
         float medianDigest = (digestValues.Count > 0 ? CalculateMedian(digestValues.ToArray()) : 0.0f);
-        simulationStats.Add(currentGeneration, new List<float>() { medianSpeed, medianSense, medianDigest});
+        simulationStats.Add(currentGeneration, new List<float>() { medianSpeed, medianSense, medianDigest });
         //simulationStats.Add(currentGeneration, )
         //chartController.UpdateBars(medianSpeed, medianSense, medianDigest);
         chartController.UpdateBars(simulationStats);

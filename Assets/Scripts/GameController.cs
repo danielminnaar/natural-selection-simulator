@@ -25,6 +25,20 @@ public class GameController : MonoBehaviour
     public float timer = 0f;
     private ChartController chartController;
     private Dictionary<int, List<float>> simulationStats;
+
+    public static GameController Instance { get; private set; }
+    void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
+    }
     void Start()
     {
         chartController = FindObjectOfType<ChartController>();
@@ -32,11 +46,16 @@ public class GameController : MonoBehaviour
         currentGenGameObjects = new List<GameObject>();
         currentGenFood = new List<GameObject>();
         simulationStats = new Dictionary<int, List<float>>();
-        InitializeSimulation();
-        Cursor.visible = false;
+        
     }
-    void InitializeSimulation()
+    public void InitializeSimulation()
     {
+        groundPlane = GameObject.Find("Plane");
+        foodPrefab = Resources.Load<GameObject>("Prefabs/Sphere");
+        capsulePrefabs.Add(Resources.Load<GameObject>("Prefabs/Slime_03"));
+        capsulePrefabs.Add(Resources.Load<GameObject>("Prefabs/Slime_03 Leaf"));
+        capsulePrefabs.Add(Resources.Load<GameObject>("Prefabs/Slime_03 Sprout"));
+        Cursor.visible = false;
         ScatterFoodSources();
         SpawnInitialPopulation();
         StartCoroutine(GenerationTimer());
@@ -357,7 +376,7 @@ public class GameController : MonoBehaviour
     private SenseTrait TestSenseOrganisms()
     {
 
-        return new SenseTrait(50);
+        return new SenseTrait();
 
     }
 

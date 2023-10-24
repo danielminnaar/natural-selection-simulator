@@ -19,7 +19,7 @@ public class CameraController : MonoBehaviour
         {
             moveSpeed = baseMoveSpeed / Time.timeScale;
         }
-
+ 
         // Getting user inputs
         float horizontal = Input.GetAxis("Horizontal");
         float vertical = Input.GetAxis("Vertical");

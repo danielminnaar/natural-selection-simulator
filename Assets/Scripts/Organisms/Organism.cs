@@ -16,5 +16,6 @@ public class Organism
     public string id = "";
     public bool hasMated = false;
     public Tuple<string, string> parentIds;
+    public Color color;
 
 }

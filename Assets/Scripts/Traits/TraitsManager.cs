@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System;
 using System.Diagnostics;
+using System.Security.Cryptography;
 
 public enum TraitType
 {
@@ -19,38 +20,14 @@ public static class TraitsManager
         if (parentTraits == null)
         {
             parentTraits = new List<Trait>();
-            // float randomTraitChoice = UnityEngine.Random.Range(0f, 1f);
-            // if (randomTraitChoice < 0.33f && allowedTraits.Contains(TraitType.SENSE))
-            //     parentTraits = new List<Trait>() { new SenseTrait() };
-            // else if (randomTraitChoice < 0.66f && allowedTraits.Contains(TraitType.SPEED))
-            //     parentTraits = new List<Trait>() { new SpeedTrait() };
-            // else if (allowedTraits.Contains(TraitType.SLOW_DIGESTION))
-            //     parentTraits = new List<Trait>() { new SlowDigestionTrait() };
-            TraitType selectedTraitType = allowedTraits[UnityEngine.Random.Range(0, allowedTraits.Count)];
-
-            // Create a list containing the selected trait.
-            switch (selectedTraitType)
-            {
-                case TraitType.SENSE:
-                    {
-                        parentTraits.Add(new SenseTrait());
-                        break;
-                    }
-                case TraitType.SPEED:
-                    {
-                        parentTraits.Add(new SpeedTrait());
-                        break;
-                    }
-                case TraitType.SLOW_DIGESTION:
-                    {
-                        parentTraits.Add(new SlowDigestionTrait());
-                        break;
-                    }
-            }
+            parentTraits.Add(GenerateRandomTrait());
         }
-        foreach (Trait t in parentTraits)
+        else
         {
-            t.Mutate();
+            foreach(var t in parentTraits)
+            {
+                t.Mutate();
+            }
         }
         return parentTraits;
     }
@@ -121,6 +98,35 @@ public static class TraitsManager
             Debug.Print("dupe");
         }
         return childTraits;
+    }
+    public static Trait GenerateRandomTrait()
+    {
+        TraitType selectedTraitType = allowedTraits[UnityEngine.Random.Range(0, allowedTraits.Count)];
+
+        // Create a list containing the selected trait.
+        switch (selectedTraitType)
+        {
+            case TraitType.SENSE:
+                {
+                    var t = new SenseTrait();
+                    t.Mutate();
+                    return t;
+                }
+            case TraitType.SPEED:
+                {
+                    var t = new SpeedTrait();
+                    t.Mutate();
+                    return t;
+                }
+            case TraitType.SLOW_DIGESTION:
+                {
+                    var t = new SlowDigestionTrait();
+                    t.Mutate();
+                    return t;
+                }
+            default:
+                return null;
+        }
     }
 
     private static bool RandomChance(int percentage)

@@ -61,10 +61,10 @@ public class OrganismController : MonoBehaviour
         }
         // Create a new material
         Material randomMaterial = new Material(Shader.Find("Standard"));
-        // Generate a random color
-        Color randomColor = new Color(UnityEngine.Random.value, UnityEngine.Random.value, UnityEngine.Random.value);
-        // Assign the random color to the material's main color property
-        randomMaterial.color = randomColor;
+        // Assign the object's color
+        Color color = organism.color; 
+        // Assign the color to the material's main color property
+        randomMaterial.color = color;
         // Assign the new material to the targetRenderer
         renderer.material = randomMaterial;
         id = organism.id;

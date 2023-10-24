@@ -324,7 +324,7 @@ public class GameController : MonoBehaviour
 
     private void SpawnPopulation()
     {
-
+        OrganismSpeciesManager.Instance.InitializeSpecies(1);
         for (int i = 0; i < currentGenOrganisms.Count; i++)
         {
             GameObject prefab = GetOrganismPrefab();
@@ -344,6 +344,7 @@ public class GameController : MonoBehaviour
             orgController.organism.foodConsumed = 0;
             orgController.organism.parentIds = currentGenOrganisms[i].parentIds;
             orgController.organism.startPosition = currentGenOrganisms[i].startPosition;
+            OrganismSpeciesManager.Instance.AssignOrganismToSpecies(currentGenOrganisms[i]);
             orgController.ApplyTraits(currentGenOrganisms[i].traits);
             currentGenGameObjects.Add(capsule);
         }
